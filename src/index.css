@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 300 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 180 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14%;
+    --input: 0 0% 16%;
+    --ring: 300 100% 50%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Barlow Semi Condensed', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: hsl(var(--primary));
+    color: #fff;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 5px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Anton', 'Barlow Semi Condensed', sans-serif;
+  }
+  .font-brush {
+    font-family: 'Caveat', cursive;
+  }
+  .title-glow {
+    text-shadow:
+      0 0 14px rgba(255, 0, 255, 0.65),
+      0 0 35px rgba(0, 255, 255, 0.35),
+      0 0 55px rgba(255, 0, 255, 0.25),
+      0 2px 0 rgba(0, 0, 0, 0.6);
+  }
+  .brush-glow {
+    text-shadow: 
+      0 0 18px rgba(0, 255, 255, 0.55),
+      0 0 30px rgba(255, 0, 255, 0.3);
+  }
+  /* trama a rete (richiamo alla rete da calcio tennis) */
+  .bg-net {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .bg-fade-radial {
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255, 0, 255, 0.09), rgba(0, 255, 255, 0.05), transparent 70%);
+  }
+}
