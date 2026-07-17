@@ -1,8 +1,5 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "yarn install",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-  "engines": {
-    "node": "18.x"
-  }
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
