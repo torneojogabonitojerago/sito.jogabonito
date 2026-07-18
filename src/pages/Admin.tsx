@@ -13,6 +13,7 @@ import {
   RotateCcw,
   ScrollText,
   Trash2,
+  Trophy,
   Upload,
   Users,
   Volleyball,
@@ -315,7 +316,7 @@ function StatusSelect({ match, patch }: { match: Match; patch: (p: Partial<Match
 
 /* ---------- schede dell'admin ---------- */
 
-type TabId = 'info' | 'squadre' | 'partite' | 'programma' | 'regole' | 'backup';
+type TabId = 'info' | 'squadre' | 'partite' | 'programma' | 'regole' | 'albo' | 'backup';
 
 const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'info', label: 'Torneo', icon: Info },
@@ -323,6 +324,7 @@ const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: 'partite', label: 'Partite', icon: Volleyball },
   { id: 'programma', label: 'Programma', icon: CalendarDays },
   { id: 'regole', label: 'Regole', icon: ScrollText },
+  { id: 'albo', label: 'Albo d\'Oro', icon: Trophy },
   { id: 'backup', label: 'Backup', icon: Download },
 ];
 
@@ -397,28 +399,47 @@ function SquadreTab() {
 function PartiteTab() {
   const { data, update } = useTournament();
   const [phaseFilter, setPhaseFilter] = useState<'all' | MatchPhase>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newMatchData, setNewMatchData] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    time: '21:00',
+    phase: 'gironi' as MatchPhase,
+    home: '',
+    away: '',
+  });
 
   const sorted = [...data.matches].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
   const visible = phaseFilter === 'all' ? sorted : sorted.filter((m) => m.phase === phaseFilter);
 
-  const addMatch = () =>
+  const addMatch = () => {
     update((d) => ({
       ...d,
       matches: [
         ...d.matches,
         {
           id: `m${Date.now()}`,
-          date: new Date().toISOString().slice(0, 10),
-          time: '21:00',
-          phase: 'gironi',
-          group: 'A',
-          home: d.teams.find((t) => t.group === 'A')?.id ?? '',
-          away: d.teams.filter((t) => t.group === 'A')[1]?.id ?? '',
+          date: newMatchData.date,
+          time: newMatchData.time,
+          phase: newMatchData.phase,
+          group: newMatchData.phase === 'gironi' ? 'A' : undefined,
+          home: newMatchData.home,
+          away: newMatchData.away,
+          homeLabel: newMatchData.home === '' ? 'Da definire' : undefined,
+          awayLabel: newMatchData.away === '' ? 'Da definire' : undefined,
           sets: [],
           status: 'scheduled',
         },
       ],
     }));
+    setShowAddModal(false);
+    setNewMatchData({
+      date: new Date().toISOString().slice(0, 10),
+      time: '21:00',
+      phase: 'gironi',
+      home: '',
+      away: '',
+    });
+  };
 
   return (
     <div>
@@ -437,7 +458,87 @@ function PartiteTab() {
             </button>
           ))}
         </div>
-        <AddButton onClick={addMatch}>Nuova partita</AddButton>
+        <AddButton onClick={() => setShowAddModal(true)}>Nuova partita</AddButton>
+
+      {/* Modal per aggiungere partita */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-lg border border-white/10 bg-[#101010] p-6 shadow-2xl">
+            <h3 className="mb-4 font-display text-xl uppercase tracking-wide text-white">Nuova partita</h3>
+            
+            <div className="space-y-4">
+              <Field label="Data">
+                <TextInput 
+                  type="date" 
+                  value={newMatchData.date} 
+                  onChange={(e) => setNewMatchData({ ...newMatchData, date: e.target.value })} 
+                />
+              </Field>
+              
+              <Field label="Ora">
+                <TextInput 
+                  type="time" 
+                  value={newMatchData.time} 
+                  onChange={(e) => setNewMatchData({ ...newMatchData, time: e.target.value })} 
+                />
+              </Field>
+              
+              <Field label="Fase">
+                <select 
+                  value={newMatchData.phase}
+                  onChange={(e) => setNewMatchData({ ...newMatchData, phase: e.target.value as MatchPhase })}
+                  className={inputCls}
+                >
+                  {(Object.keys(phaseLabel) as MatchPhase[]).map((p) => (
+                    <option key={p} value={p}>{phaseLabel[p]}</option>
+                  ))}
+                </select>
+              </Field>
+              
+              <Field label="Squadra casa">
+                <select 
+                  value={newMatchData.home}
+                  onChange={(e) => setNewMatchData({ ...newMatchData, home: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="">Nessuna squadra</option>
+                  {data.teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </Field>
+              
+              <Field label="Squadra ospite">
+                <select 
+                  value={newMatchData.away}
+                  onChange={(e) => setNewMatchData({ ...newMatchData, away: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="">Nessuna squadra</option>
+                  {data.teams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="rounded-sm border border-white/10 bg-[#101010] px-4 py-2 text-sm font-bold uppercase tracking-widest text-zinc-400 transition-colors hover:text-white"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={addMatch}
+                className="rounded-sm bg-primary px-4 py-2 text-sm font-bold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(255,0,255,0.4)] transition-colors hover:bg-primary/80"
+              >
+                Crea partita
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {visible.map((m) => (
@@ -529,6 +630,174 @@ function RegoleTab() {
         <AddButton onClick={() => update((d) => ({ ...d, rules: [...d.rules, { title: 'Nuova regola', text: '' }] }))}>
           Aggiungi regola
         </AddButton>
+      </div>
+    </div>
+  );
+}
+
+function AlboTab() {
+  const { data, update } = useTournament();
+
+  const patchEdition = (index: number, p: Partial<typeof data.hallOfFame[0]>) =>
+    update((d) => ({ ...d, hallOfFame: d.hallOfFame.map((e, i) => (i === index ? { ...e, ...p } : e)) }));
+
+  const addEdition = () =>
+    update((d) => ({
+      ...d,
+      hallOfFame: [
+        ...d.hallOfFame,
+        {
+          year: new Date().getFullYear().toString(),
+          winner: 'Da definire',
+          runnerUp: 'Da definire',
+          thirdPlace: 'Da definire',
+          matchesPlayed: 0,
+          totalGoals: 0,
+          teamsCount: 8,
+        },
+      ],
+    }));
+
+  const removeEdition = (index: number) =>
+    update((d) => ({ ...d, hallOfFame: d.hallOfFame.filter((_, i) => i !== index) }));
+
+  const autoGenerateCurrentEdition = () => {
+    const finishedMatches = data.matches.filter(m => m.status === 'finished');
+    const totalGoals = finishedMatches.reduce((sum, m) => {
+      return sum + m.sets.reduce((setSum, s) => setSum + s.home + s.away, 0);
+    }, 0);
+
+    // Calculate standings to determine winner
+    const standings = new Map<string, { points: number; name: string }>();
+    data.teams.forEach(t => standings.set(t.id, { points: 0, name: t.name }));
+    
+    finishedMatches.forEach(m => {
+      if (!m.home || !m.away) return;
+      const homeSets = m.sets.filter(s => s.home > s.away).length;
+      const awaySets = m.sets.filter(s => s.away > s.home).length;
+      
+      const home = standings.get(m.home);
+      const away = standings.get(m.away);
+      if (home && away) {
+        if (homeSets > awaySets) {
+          home.points += 3;
+        } else if (awaySets > homeSets) {
+          away.points += 3;
+        }
+      }
+    });
+
+    const sortedStandings = Array.from(standings.values()).sort((a, b) => b.points - a.points);
+    
+    const winner = sortedStandings[0]?.name || 'Da definire';
+    const runnerUp = sortedStandings[1]?.name || 'Da definire';
+    const thirdPlace = sortedStandings[2]?.name || 'Da definire';
+
+    update((d) => ({
+      ...d,
+      hallOfFame: [
+        ...d.hallOfFame,
+        {
+          year: new Date().getFullYear().toString(),
+          winner,
+          runnerUp,
+          thirdPlace,
+          matchesPlayed: finishedMatches.length,
+          totalGoals,
+          teamsCount: data.teams.length,
+        },
+      ],
+    }));
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Toggle statistiche storiche */}
+      <div className="flex items-center justify-between rounded-md border border-white/10 bg-[#101010] p-4">
+        <div>
+          <h3 className="font-display text-lg uppercase tracking-wide text-white">Mostra statistiche storiche</h3>
+          <p className="mt-1 text-sm text-zinc-500">Abilita o disabilita la sezione delle statistiche storiche nella pagina Albo d'Oro</p>
+        </div>
+        <button
+          onClick={() => update((d) => ({ ...d, showHistoricalStats: d.showHistoricalStats === false }))}
+          className={cn(
+            'relative h-7 w-12 rounded-full p-1 transition-colors duration-200',
+            data.showHistoricalStats !== false ? 'bg-primary' : 'bg-zinc-600'
+          )}
+        >
+          <span
+            className={cn(
+              'block h-5 w-5 rounded-full bg-white transition-transform duration-200',
+              data.showHistoricalStats !== false ? 'translate-x-5' : 'translate-x-0'
+            )}
+          />
+        </button>
+      </div>
+
+      {/* Generazione automatica */}
+      <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 p-4">
+        <div>
+          <h3 className="font-display text-lg uppercase tracking-wide text-white">Genera edizione corrente</h3>
+          <p className="mt-1 text-sm text-zinc-500">Calcola automaticamente i risultati del torneo corrente e aggiungili all'Albo d'Oro</p>
+        </div>
+        <AddButton onClick={autoGenerateCurrentEdition}>Genera automaticamente</AddButton>
+      </div>
+
+      {/* Edizioni */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {data.hallOfFame.map((edition, index) => (
+          <div key={edition.year} className="rounded-md border border-white/10 bg-[#101010] p-5">
+            <div className="flex items-start justify-between gap-2 mb-4">
+              <h3 className="font-display text-2xl text-primary drop-shadow-[0_0_10px_rgba(255,0,255,0.5)]">{edition.year}</h3>
+              <IconBtn onClick={() => removeEdition(index)} title="Rimuovi edizione" danger>
+                <Trash2 className="h-4 w-4" />
+              </IconBtn>
+            </div>
+            <div className="space-y-3">
+              <Field label="Vincitore">
+                <TextInput value={edition.winner} onChange={(e) => patchEdition(index, { winner: e.target.value })} />
+              </Field>
+              <Field label="Secondo">
+                <TextInput value={edition.runnerUp} onChange={(e) => patchEdition(index, { runnerUp: e.target.value })} />
+              </Field>
+              <Field label="Terzo">
+                <TextInput value={edition.thirdPlace} onChange={(e) => patchEdition(index, { thirdPlace: e.target.value })} />
+              </Field>
+              <Field label="MVP (opzionale)">
+                <TextInput value={edition.mvp || ''} onChange={(e) => patchEdition(index, { mvp: e.target.value })} />
+              </Field>
+              <Field label="Top Scorer (opzionale)">
+                <TextInput value={edition.topScorer || ''} onChange={(e) => patchEdition(index, { topScorer: e.target.value })} />
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Partite giocate">
+                  <TextInput 
+                    type="number" 
+                    value={edition.matchesPlayed || 0} 
+                    onChange={(e) => patchEdition(index, { matchesPlayed: parseInt(e.target.value) || 0 })} 
+                  />
+                </Field>
+                <Field label="Goal totali">
+                  <TextInput 
+                    type="number" 
+                    value={edition.totalGoals || 0} 
+                    onChange={(e) => patchEdition(index, { totalGoals: parseInt(e.target.value) || 0 })} 
+                  />
+                </Field>
+                <Field label="Squadre">
+                  <TextInput 
+                    type="number" 
+                    value={edition.teamsCount || 8} 
+                    onChange={(e) => patchEdition(index, { teamsCount: parseInt(e.target.value) || 8 })} 
+                  />
+                </Field>
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="flex items-start">
+          <AddButton onClick={addEdition}>Aggiungi edizione</AddButton>
+        </div>
       </div>
     </div>
   );
@@ -736,6 +1005,7 @@ export default function Admin() {
         {tab === 'partite' && <PartiteTab />}
         {tab === 'programma' && <ProgrammaTab />}
         {tab === 'regole' && <RegoleTab />}
+        {tab === 'albo' && <AlboTab />}
         {tab === 'backup' && <BackupTab />}
       </div>
     </div>

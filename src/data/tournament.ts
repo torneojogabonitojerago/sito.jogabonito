@@ -59,6 +59,18 @@ export interface RuleItem {
   text: string;
 }
 
+export interface HallOfFameEdition {
+  year: string;
+  winner: string;
+  runnerUp: string;
+  thirdPlace: string;
+  mvp?: string;
+  topScorer?: string;
+  matchesPlayed?: number;
+  totalGoals?: number;
+  teamsCount?: number;
+}
+
 /** Tutto ciò che la pagina admin può modificare */
 export interface TournamentData {
   info: TournamentInfo;
@@ -66,6 +78,8 @@ export interface TournamentData {
   matches: Match[];
   openingNight: OpeningNight;
   rules: RuleItem[];
+  hallOfFame: HallOfFameEdition[];
+  showHistoricalStats?: boolean;
 }
 
 /* ---------- DATI INIZIALI ---------- */
@@ -141,6 +155,42 @@ export const defaultData: TournamentData = {
     { title: 'Fase a gironi', text: 'Vittoria 3 punti, sconfitta 0. A parità di punti contano differenza set, differenza punti e scontro diretto.' },
     { title: 'Fasi finali', text: 'Le prime quattro classificate accedono alle semifinali (1ª vs 4ª, 2ª vs 3ª). Seguono finalina 3°/4° posto e finale.' },
   ],
+
+  hallOfFame: [
+    {
+      year: '2026',
+      winner: 'Da definire',
+      runnerUp: 'Da definire',
+      thirdPlace: 'Da definire',
+      matchesPlayed: 0,
+      totalGoals: 0,
+      teamsCount: 8,
+    },
+    {
+      year: '2025',
+      winner: 'FC Patronale',
+      runnerUp: 'Atletico Sagra',
+      thirdPlace: 'Real Campanile',
+      mvp: 'Mario Rossi',
+      topScorer: 'Luca Verdi',
+      matchesPlayed: 12,
+      totalGoals: 48,
+      teamsCount: 8,
+    },
+    {
+      year: '2024',
+      winner: 'AS Luminarie',
+      runnerUp: 'United Processione',
+      thirdPlace: 'Sporting Banchetto',
+      mvp: 'Giuseppe Bianchi',
+      topScorer: 'Marco Neri',
+      matchesPlayed: 12,
+      totalGoals: 52,
+      teamsCount: 8,
+    },
+  ],
+
+  showHistoricalStats: true,
 };
 
 export function isValidTournamentData(value: unknown): value is TournamentData {

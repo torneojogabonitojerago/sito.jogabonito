@@ -9,6 +9,7 @@ const links = [
   { to: '/gironi', label: 'Gironi' },
   { to: '/risultati', label: 'Risultati' },
   { to: '/classifiche', label: 'Classifiche' },
+  { to: '/albo-d-oro', label: 'Albo d\'Oro' },
   { to: '/regolamento', label: 'Regolamento' },
 ];
 

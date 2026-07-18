@@ -5,6 +5,7 @@ import Home from '@/pages/Home';
 import Gironi from '@/pages/Gironi';
 import Risultati from '@/pages/Risultati';
 import Classifiche from '@/pages/Classifiche';
+import AlboDoro from '@/pages/AlboDoro';
 import Regolamento from '@/pages/Regolamento';
 import Admin from '@/pages/Admin';
 
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="gironi" element={<Gironi />} />
           <Route path="risultati" element={<Risultati />} />
           <Route path="classifiche" element={<Classifiche />} />
+          <Route path="albo-d-oro" element={<AlboDoro />} />
           <Route path="regolamento" element={<Regolamento />} />
           <Route path="admin" element={<Admin />} />
           <Route path="*" element={<Home />} />
