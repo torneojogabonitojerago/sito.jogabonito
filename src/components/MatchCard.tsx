@@ -60,7 +60,7 @@ export default function MatchCard({ match, teams }: { match: Match; teams: Team[
   const awayWon = played && sw.away > sw.home;
 
   return (
-    <div className="group rounded-md border border-white/8 bg-[#101010] p-4 transition-colors hover:border-primary/40 sm:p-5">
+    <div className="group rounded-md border border-white/8 bg-[#101010] p-4 transition-all duration-300 hover:border-primary/40 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(255,0,255,0.15)] sm:p-5">
       {/* data e ora */}
       <div className="mb-4 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-primary/90">
         <span className="flex items-center gap-1.5">

@@ -1,5 +1,6 @@
 import { Trophy, Medal, Award } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import AnimatedNumber from '@/components/AnimatedNumber';
 import { useTournament } from '@/data/store';
 
 export default function AlboDoro() {
@@ -104,25 +105,31 @@ export default function AlboDoro() {
           <h3 className="mb-6 font-display text-2xl uppercase tracking-wide text-white">Statistiche storiche</h3>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="text-center">
-              <p className="font-display text-4xl font-bold text-primary drop-shadow-[0_0_10px_rgba(255,0,255,0.5)]">{editions.length}</p>
+              <AnimatedNumber 
+                value={editions.length} 
+                className="font-display text-4xl font-bold text-primary drop-shadow-[0_0_10px_rgba(255,0,255,0.5)]" 
+              />
               <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Edizioni</p>
             </div>
             <div className="text-center">
-              <p className="font-display text-4xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.5)]">
-                {editions.reduce((sum, e) => sum + (e.matchesPlayed || 0), 0)}
-              </p>
+              <AnimatedNumber 
+                value={editions.reduce((sum, e) => sum + (e.matchesPlayed || 0), 0)}
+                className="font-display text-4xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.5)]"
+              />
               <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Partite giocate</p>
             </div>
             <div className="text-center">
-              <p className="font-display text-4xl font-bold text-white">
-                {editions.reduce((sum, e) => sum + (e.totalGoals || 0), 0)}
-              </p>
+              <AnimatedNumber 
+                value={editions.reduce((sum, e) => sum + (e.totalGoals || 0), 0)}
+                className="font-display text-4xl font-bold text-white"
+              />
               <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Goal totali</p>
             </div>
             <div className="text-center">
-              <p className="font-display text-4xl font-bold text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]">
-                {new Set(editions.map(e => e.winner)).size}
-              </p>
+              <AnimatedNumber 
+                value={new Set(editions.map(e => e.winner)).size}
+                className="font-display text-4xl font-bold text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+              />
               <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Squadre vincitrici</p>
             </div>
           </div>

@@ -12,7 +12,7 @@ function GroupCard({ group, title, accent }: { group: 'A'; title: string; accent
   const Icon = Crown;
 
   return (
-    <div className="overflow-hidden rounded-md border border-white/8 bg-[#101010]">
+    <div className="overflow-hidden rounded-md border border-white/8 bg-[#101010] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(255,0,255,0.15)]">
       <div className="relative px-5 py-4">
         <div className={cn('absolute inset-x-0 bottom-0 h-[2px]', accentBar)} />
         <h3 className="flex items-center gap-2.5 font-display text-2xl uppercase tracking-wide text-white">
@@ -71,7 +71,7 @@ export default function Gironi() {
             <div
               key={m.id}
               className={cn(
-                'rounded-md border bg-[#101010] p-5 text-center',
+                'rounded-md border bg-[#101010] p-5 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(255,0,255,0.15)]',
                 m.phase === 'finale' ? 'border-primary/50 shadow-[0_0_35px_rgba(255,77,0,0.15)]' : 'border-white/8',
               )}
             >

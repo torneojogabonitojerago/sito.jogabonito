@@ -58,10 +58,11 @@ export default function StandingsTable({ title, icon: Icon, rows, accent = 'oran
                 <tr
                   key={r.team.id}
                   className={cn(
-                    'border-t border-white/5',
+                    'border-t border-white/5 animate-fade-in',
                     qualified && 'bg-primary/[0.06]',
                     r.played === 0 && 'opacity-70',
                   )}
+                  style={{ animationDelay: `${i * 50}ms` }}
                 >
                   <td className={cn('px-5 py-3.5 font-display text-base', posColor(pos))}>
                     <span className="flex items-center gap-2">
