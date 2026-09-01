@@ -59,6 +59,19 @@ export interface RuleItem {
   text: string;
 }
 
+export type SiteState = 'pre-season' | 'live-season' | 'off-season';
+
+export interface PreSeasonInfo {
+  trailerUrl: string;
+  registrationsOpen: boolean;
+  registrationsInfo: string;
+}
+
+export interface OffSeasonInfo {
+  teaserTitle: string;
+  teaserMessage: string;
+}
+
 export interface HallOfFameEdition {
   year: string;
   winner: string;
@@ -73,6 +86,8 @@ export interface HallOfFameEdition {
 
 /** Tutto ciò che la pagina admin può modificare */
 export interface TournamentData {
+  slug: string;
+  sport: string;
   info: TournamentInfo;
   teams: Team[];
   matches: Match[];
@@ -80,11 +95,17 @@ export interface TournamentData {
   rules: RuleItem[];
   hallOfFame: HallOfFameEdition[];
   showHistoricalStats?: boolean;
+  siteState: SiteState;
+  preSeason: PreSeasonInfo;
+  offSeason: OffSeasonInfo;
 }
 
 /* ---------- DATI INIZIALI ---------- */
 
 export const defaultData: TournamentData = {
+  slug: 'calcio-tennis',
+  sport: 'Calcio Tennis',
+
   info: {
     name: 'TORNEO PATRONALE',
     brushSubtitle: 'Calcio Tennis 2026',
@@ -191,6 +212,19 @@ export const defaultData: TournamentData = {
   ],
 
   showHistoricalStats: true,
+
+  siteState: 'live-season',
+
+  preSeason: {
+    trailerUrl: '',
+    registrationsOpen: true,
+    registrationsInfo: 'Iscrivi la tua squadra alla prossima edizione del torneo! Compila il form con i dati del referente, ti ricontatteremo per la conferma.',
+  },
+
+  offSeason: {
+    teaserTitle: 'Ci vediamo alla prossima edizione!',
+    teaserMessage: 'Il torneo è concluso. Seguici sui social per non perderti data e iscrizioni della prossima stagione.',
+  },
 };
 
 export function isValidTournamentData(value: unknown): value is TournamentData {
@@ -203,6 +237,43 @@ export function isValidTournamentData(value: unknown): value is TournamentData {
     Array.isArray(v.rules) &&
     Boolean(v.openingNight)
   );
+}
+
+/** Dati di partenza per un torneo nuovo creato dall'hub — vuoto, non eredita i dati demo. */
+export function blankTournamentData(slug: string, sport: string, name: string): TournamentData {
+  return {
+    slug,
+    sport,
+    info: {
+      name,
+      brushSubtitle: sport,
+      edition: 'I Edizione',
+      location: 'Da definire',
+      dates: 'Date da definire',
+      organizer: 'Comitato Festa Patronale',
+    },
+    teams: [],
+    matches: [],
+    openingNight: {
+      badge: 'Gran Opening',
+      title: 'SERATA DI APERTURA',
+      schedule: [],
+      note: { title: '', text: '' },
+    },
+    rules: [],
+    hallOfFame: [],
+    showHistoricalStats: false,
+    siteState: 'pre-season',
+    preSeason: {
+      trailerUrl: '',
+      registrationsOpen: true,
+      registrationsInfo: 'Iscrivi la tua squadra a questo torneo! Compila il form con i dati del referente, ti ricontatteremo per la conferma.',
+    },
+    offSeason: {
+      teaserTitle: 'Ci vediamo alla prossima edizione!',
+      teaserMessage: 'Il torneo è concluso. Seguici sui social per non perderti data e iscrizioni della prossima stagione.',
+    },
+  };
 }
 
 /* ============================================================

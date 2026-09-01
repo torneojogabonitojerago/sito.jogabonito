@@ -1,11 +1,8 @@
 import { Link } from 'react-router';
-import { Instagram, MapPin, Lock } from 'lucide-react';
-import { useTournament } from '@/data/store';
+import { Instagram, Lock } from 'lucide-react';
 import TikTokIcon from './TikTokIcon';
 
 export default function Footer() {
-  const { data } = useTournament();
-
   return (
     <footer className="border-t border-white/5 bg-black py-10">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 text-center">
@@ -17,12 +14,8 @@ export default function Footer() {
             <TikTokIcon className="h-5 w-5" />
           </a>
         </div>
-        <p className="flex items-center gap-2 text-sm text-zinc-500">
-          <MapPin className="h-4 w-4 text-primary" />
-          {data.info.location} · {data.info.dates}
-        </p>
         <p className="font-display text-xs uppercase tracking-[0.3em] text-zinc-600">
-          {data.info.name} · {data.info.brushSubtitle} · {data.info.organizer}
+          Tornei Joga Bonito · Festa Patronale
         </p>
         <Link
           to="/admin"

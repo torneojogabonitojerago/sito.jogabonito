@@ -1,15 +1,22 @@
-import { useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
+  ArrowLeft,
   CalendarDays,
+  Check,
+  ClipboardList,
   Cloud,
   CloudOff,
   Download,
   ExternalLink,
   Info,
   Loader2,
-  Lock,
+  Mail,
+  Phone,
   Plus,
+  Radio,
+  RadioTower,
+  Rocket,
   RotateCcw,
   ScrollText,
   Trash2,
@@ -17,6 +24,7 @@ import {
   Upload,
   Users,
   Volleyball,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTournament, type SyncStatus } from '@/data/store';
@@ -25,13 +33,18 @@ import {
   type Match,
   type MatchPhase,
   type MatchStatus,
+  type SiteState,
   type Team,
   type TournamentData,
 } from '@/data/tournament';
-
-/* Codice di accesso all'area admin — CAMBIALO QUI */
-const ADMIN_CODE = 'patronale2026';
-const SESSION_KEY = 'torneo-admin-ok';
+import {
+  deleteRegistration,
+  listRegistrations,
+  subscribeRegistrations,
+  updateRegistrationStatus,
+} from '@/data/registrations-api';
+import type { TeamRegistration } from '@/data/registrations';
+import AdminGate, { inputCls, isAdminUnlocked } from '@/pages/admin/AdminGate';
 
 /* ---------- piccoli componenti di form ---------- */
 
@@ -43,9 +56,6 @@ function Field({ label, children, className }: { label: string; children: ReactN
     </label>
   );
 }
-
-const inputCls =
-  'w-full rounded-sm border border-white/10 bg-black/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-primary [color-scheme:dark]';
 
 function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(inputCls, props.className)} />;
@@ -86,58 +96,6 @@ function IconBtn({ onClick, title, danger, children }: { onClick: () => void; ti
   );
 }
 
-/* ---------- gate con codice ---------- */
-
-function Gate({ onUnlock }: { onUnlock: () => void }) {
-  const [code, setCode] = useState('');
-  const [error, setError] = useState(false);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (code === ADMIN_CODE) {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      onUnlock();
-    } else {
-      setError(true);
-    }
-  };
-
-  return (
-    <div className="flex min-h-[70vh] items-center justify-center px-4 pt-16">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm rounded-md border border-white/10 bg-[#101010] p-8 text-center"
-      >
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-sm bg-primary/15 text-primary">
-          <Lock className="h-7 w-7" />
-        </span>
-        <h1 className="font-display mt-4 text-2xl uppercase tracking-wide text-white">Area Organizzatori</h1>
-        <p className="mt-1 text-sm text-zinc-500">Inserisci il codice per gestire il torneo</p>
-        <input
-          type="password"
-          value={code}
-          onChange={(e) => {
-            setCode(e.target.value);
-            setError(false);
-          }}
-          placeholder="Codice di accesso"
-          autoFocus
-          className={cn(inputCls, 'mt-6 text-center tracking-[0.3em]', error && 'border-red-500')}
-        />
-        {error && <p className="mt-2 text-xs font-semibold uppercase tracking-widest text-red-500">Codice errato</p>}
-        <button
-          type="submit"
-          className="font-display mt-5 w-full rounded-sm bg-primary px-4 py-3 text-sm uppercase tracking-widest text-white transition-transform hover:scale-[1.02]"
-        >
-          Entra
-        </button>
-        <Link to="/" className="mt-4 inline-block text-xs uppercase tracking-widest text-zinc-600 hover:text-primary">
-          ← Torna al sito
-        </Link>
-      </form>
-    </div>
-  );
-}
 
 /* ---------- editor singola partita ---------- */
 
@@ -316,12 +274,14 @@ function StatusSelect({ match, patch }: { match: Match; patch: (p: Partial<Match
 
 /* ---------- schede dell'admin ---------- */
 
-type TabId = 'info' | 'squadre' | 'partite' | 'programma' | 'regole' | 'albo' | 'backup';
+type TabId = 'stato' | 'info' | 'squadre' | 'partite' | 'iscrizioni' | 'programma' | 'regole' | 'albo' | 'backup';
 
 const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'stato', label: 'Stato', icon: Radio },
   { id: 'info', label: 'Torneo', icon: Info },
   { id: 'squadre', label: 'Squadre', icon: Users },
   { id: 'partite', label: 'Partite', icon: Volleyball },
+  { id: 'iscrizioni', label: 'Iscrizioni', icon: ClipboardList },
   { id: 'programma', label: 'Programma', icon: CalendarDays },
   { id: 'regole', label: 'Regole', icon: ScrollText },
   { id: 'albo', label: 'Albo d\'Oro', icon: Trophy },
@@ -341,6 +301,266 @@ function InfoTab() {
       <Field label="Campo / luogo"><TextInput value={data.info.location} onChange={set('location')} /></Field>
       <Field label="Date"><TextInput value={data.info.dates} onChange={set('dates')} /></Field>
       <Field label="Organizzatore"><TextInput value={data.info.organizer} onChange={set('organizer')} /></Field>
+    </div>
+  );
+}
+
+/* ---------- stato del sito (pre-season / live-season / off-season) ---------- */
+
+const siteStates: { id: SiteState; label: string; icon: React.ComponentType<{ className?: string }>; accent: string }[] = [
+  { id: 'pre-season', label: 'Pre-season', icon: Rocket, accent: 'border-sky-500/50 bg-sky-500/10 text-sky-400' },
+  { id: 'live-season', label: 'Live season', icon: RadioTower, accent: 'border-red-500/50 bg-red-500/10 text-red-400' },
+  { id: 'off-season', label: 'Off-season', icon: Trophy, accent: 'border-amber-500/50 bg-amber-500/10 text-amber-400' },
+];
+
+function StatoTab() {
+  const { data, update } = useTournament();
+
+  const setState = (siteState: SiteState) => update((d) => ({ ...d, siteState }));
+  const patchPreSeason = (p: Partial<TournamentData['preSeason']>) =>
+    update((d) => ({ ...d, preSeason: { ...d.preSeason, ...p } }));
+  const patchOffSeason = (p: Partial<TournamentData['offSeason']>) =>
+    update((d) => ({ ...d, offSeason: { ...d.offSeason, ...p } }));
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div>
+        <p className="mb-3 text-sm text-zinc-500">
+          Lo stato scelto determina cosa vedono i visitatori nella Home e nel menu del sito.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {siteStates.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setState(s.id)}
+              className={cn(
+                'flex flex-col items-center gap-2 rounded-md border p-4 text-center transition-all duration-200',
+                data.siteState === s.id
+                  ? s.accent
+                  : 'border-white/10 bg-[#101010] text-zinc-500 hover:border-white/20 hover:text-zinc-300',
+              )}
+            >
+              <s.icon className="h-6 w-6" />
+              <span className="font-display text-sm uppercase tracking-widest">{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {data.siteState === 'pre-season' && (
+        <div className="rounded-md border border-white/10 bg-[#101010] p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display text-base uppercase tracking-wide text-white">Iscrizioni aperte</h3>
+              <p className="mt-1 text-xs text-zinc-500">Mostra il form di iscrizione in "/iscrizioni" e in Home.</p>
+            </div>
+            <button
+              onClick={() => patchPreSeason({ registrationsOpen: !data.preSeason.registrationsOpen })}
+              className={cn(
+                'relative h-7 w-12 shrink-0 rounded-full p-1 transition-colors duration-200',
+                data.preSeason.registrationsOpen ? 'bg-primary' : 'bg-zinc-600',
+              )}
+            >
+              <span
+                className={cn(
+                  'block h-5 w-5 rounded-full bg-white transition-transform duration-200',
+                  data.preSeason.registrationsOpen ? 'translate-x-5' : 'translate-x-0',
+                )}
+              />
+            </button>
+          </div>
+          <Field label="Testo iscrizioni">
+            <TextArea
+              value={data.preSeason.registrationsInfo}
+              onChange={(e) => patchPreSeason({ registrationsInfo: e.target.value })}
+            />
+          </Field>
+          <Field label="URL trailer / video promozionale (opzionale)">
+            <TextInput
+              value={data.preSeason.trailerUrl}
+              onChange={(e) => patchPreSeason({ trailerUrl: e.target.value })}
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+          </Field>
+        </div>
+      )}
+
+      {data.siteState === 'live-season' && (
+        <div className="flex items-start gap-3 rounded-md border border-white/10 bg-[#101010] p-4 text-sm text-zinc-400">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p>
+            Prossima partita, classifica live e statistiche sono calcolate automaticamente. Per impostare l'MVP di questa
+            stagione, vai nella tab <span className="font-semibold text-zinc-200">Albo d'Oro</span> ed edita il campo MVP
+            dell'edizione corrente.
+          </p>
+        </div>
+      )}
+
+      {data.siteState === 'off-season' && (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-md border border-white/10 bg-[#101010] p-4 text-sm text-zinc-400">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <p>
+              Il campione mostrato in Home viene dal vincitore dell'edizione corrente in{' '}
+              <span className="font-semibold text-zinc-200">Albo d'Oro</span>.
+            </p>
+          </div>
+          <div className="rounded-md border border-white/10 bg-[#101010] p-4 space-y-4">
+            <Field label="Titolo teaser prossima stagione">
+              <TextInput value={data.offSeason.teaserTitle} onChange={(e) => patchOffSeason({ teaserTitle: e.target.value })} />
+            </Field>
+            <Field label="Messaggio teaser">
+              <TextArea value={data.offSeason.teaserMessage} onChange={(e) => patchOffSeason({ teaserMessage: e.target.value })} />
+            </Field>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- iscrizioni ---------- */
+
+const registrationFilters: { id: 'all' | TeamRegistration['status']; label: string }[] = [
+  { id: 'all', label: 'Tutte' },
+  { id: 'pending', label: 'In attesa' },
+  { id: 'approved', label: 'Approvate' },
+  { id: 'rejected', label: 'Rifiutate' },
+];
+
+function IscrizioniTab() {
+  const { data, update, usesSupabase } = useTournament();
+  const slug = data.slug;
+  const [registrations, setRegistrations] = useState<TeamRegistration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | TeamRegistration['status']>('pending');
+
+  const load = useCallback(() => {
+    listRegistrations(slug)
+      .then((rows) => {
+        setRegistrations(rows);
+        setError(null);
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Errore di caricamento'))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  useEffect(() => {
+    load();
+    return subscribeRegistrations(slug, load);
+  }, [slug, load]);
+
+  const approve = (r: TeamRegistration) => {
+    update((d) => ({
+      ...d,
+      teams: [...d.teams, { id: `t${Date.now()}`, name: r.teamName, group: 'A' }],
+    }));
+    updateRegistrationStatus(slug, r.id, 'approved').then(load).catch((err: unknown) =>
+      setError(err instanceof Error ? err.message : 'Errore di aggiornamento'),
+    );
+  };
+
+  const reject = (r: TeamRegistration) => {
+    updateRegistrationStatus(slug, r.id, 'rejected').then(load).catch((err: unknown) =>
+      setError(err instanceof Error ? err.message : 'Errore di aggiornamento'),
+    );
+  };
+
+  const remove = (r: TeamRegistration) => {
+    if (!window.confirm('Eliminare definitivamente questa richiesta?')) return;
+    deleteRegistration(slug, r.id).then(load).catch((err: unknown) =>
+      setError(err instanceof Error ? err.message : 'Errore di eliminazione'),
+    );
+  };
+
+  const visible = filter === 'all' ? registrations : registrations.filter((r) => r.status === filter);
+
+  return (
+    <div>
+      {!usesSupabase && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/25 bg-amber-500/[0.06] px-4 py-3 text-xs text-zinc-300">
+          <CloudOff className="h-4 w-4 shrink-0 text-amber-400" />
+          Supabase non configurato: le iscrizioni restano solo su questo browser.
+        </div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-md border border-red-500/25 bg-red-500/[0.06] px-4 py-3 text-xs text-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {registrationFilters.map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={cn(
+              'rounded-sm px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-colors',
+              filter === f.id ? 'bg-primary text-white' : 'border border-white/10 text-zinc-400 hover:text-white',
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-zinc-500">Caricamento…</p>
+      ) : visible.length === 0 ? (
+        <p className="text-sm text-zinc-500">Nessuna richiesta {filter !== 'all' ? `"${registrationFilters.find((f) => f.id === filter)?.label}"` : ''}.</p>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {visible.map((r) => (
+            <div key={r.id} className="rounded-md border border-white/10 bg-[#101010] p-4">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-display text-lg uppercase tracking-wide text-white">{r.teamName}</h3>
+                <span
+                  className={cn(
+                    'rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest',
+                    r.status === 'approved' && 'bg-primary/15 text-primary',
+                    r.status === 'rejected' && 'bg-red-500/15 text-red-400',
+                    r.status === 'pending' && 'bg-white/10 text-zinc-400',
+                  )}
+                >
+                  {registrationFilters.find((f) => f.id === r.status)?.label}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-zinc-300">{r.contactName}</p>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+                {r.contactPhone && (
+                  <span className="flex items-center gap-1.5"><Phone className="h-3 w-3" />{r.contactPhone}</span>
+                )}
+                {r.contactEmail && (
+                  <span className="flex items-center gap-1.5"><Mail className="h-3 w-3" />{r.contactEmail}</span>
+                )}
+                {r.playersCount != null && <span>{r.playersCount} giocatori</span>}
+              </div>
+              {r.notes && <p className="mt-2 text-xs text-zinc-500">{r.notes}</p>}
+              <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
+                <span className="text-[11px] uppercase tracking-widest text-zinc-600">
+                  {new Date(r.createdAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+                <div className="flex gap-1">
+                  {r.status !== 'approved' && (
+                    <IconBtn onClick={() => approve(r)} title="Approva e aggiungi come squadra">
+                      <Check className="h-4 w-4" />
+                    </IconBtn>
+                  )}
+                  {r.status !== 'rejected' && (
+                    <IconBtn onClick={() => reject(r)} title="Rifiuta" danger>
+                      <X className="h-4 w-4" />
+                    </IconBtn>
+                  )}
+                  <IconBtn onClick={() => remove(r)} title="Elimina" danger>
+                    <Trash2 className="h-4 w-4" />
+                  </IconBtn>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -956,10 +1176,10 @@ function SyncBanner() {
 /* ---------- pagina ---------- */
 
 export default function Admin() {
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1');
-  const [tab, setTab] = useState<TabId>('partite');
+  const [unlocked, setUnlocked] = useState(() => isAdminUnlocked());
+  const [tab, setTab] = useState<TabId>('stato');
 
-  if (!unlocked) return <Gate onUnlock={() => setUnlocked(true)} />;
+  if (!unlocked) return <AdminGate onUnlock={() => setUnlocked(true)} />;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 pt-24">
@@ -970,12 +1190,20 @@ export default function Admin() {
           </h1>
           <p className="font-brush mt-1 text-2xl text-primary">gestione torneo</p>
         </div>
-        <Link
-          to="/"
-          className="flex items-center gap-2 rounded-sm border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-300 hover:border-primary hover:text-primary"
-        >
-          <ExternalLink className="h-4 w-4" /> Vedi il sito
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/admin"
+            className="flex items-center gap-2 rounded-sm border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-300 hover:border-primary hover:text-primary"
+          >
+            <ArrowLeft className="h-4 w-4" /> Tutti i tornei
+          </Link>
+          <Link
+            to=".."
+            className="flex items-center gap-2 rounded-sm border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-300 hover:border-primary hover:text-primary"
+          >
+            <ExternalLink className="h-4 w-4" /> Vedi il sito
+          </Link>
+        </div>
       </div>
 
       <SyncBanner />
@@ -1000,9 +1228,11 @@ export default function Admin() {
       </div>
 
       <div className="mt-6">
+        {tab === 'stato' && <StatoTab />}
         {tab === 'info' && <InfoTab />}
         {tab === 'squadre' && <SquadreTab />}
         {tab === 'partite' && <PartiteTab />}
+        {tab === 'iscrizioni' && <IscrizioniTab />}
         {tab === 'programma' && <ProgrammaTab />}
         {tab === 'regole' && <RegoleTab />}
         {tab === 'albo' && <AlboTab />}

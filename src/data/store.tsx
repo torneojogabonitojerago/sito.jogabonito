@@ -14,10 +14,10 @@ import {
   saveTournament,
   subscribeTournament,
 } from '@/data/tournament-api';
-import { defaultData, isValidTournamentData, type TournamentData } from '@/data/tournament';
+import { blankTournamentData, defaultData, isValidTournamentData, type TournamentData } from '@/data/tournament';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
-const STORAGE_KEY = 'torneo-patronale-data-v1';
+const STORAGE_PREFIX = 'torneo-patronale-data-v1';
 const SAVE_DEBOUNCE_MS = 800;
 
 export type SyncStatus = 'idle' | 'loading' | 'syncing' | 'synced' | 'error' | 'local';
@@ -34,30 +34,34 @@ interface StoreValue {
 
 const StoreCtx = createContext<StoreValue | null>(null);
 
-function loadFromLocalStorage(): TournamentData {
+function seedFor(slug: string): TournamentData {
+  return slug === defaultData.slug ? defaultData : blankTournamentData(slug, 'Torneo', 'Nuovo torneo');
+}
+
+function loadFromLocalStorage(slug: string): TournamentData {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultData;
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}:${slug}`);
+    if (!raw) return seedFor(slug);
     const parsed = JSON.parse(raw) as unknown;
-    if (!isValidTournamentData(parsed)) return defaultData;
-    return { ...defaultData, ...parsed };
+    if (!isValidTournamentData(parsed)) return seedFor(slug);
+    return { ...seedFor(slug), ...parsed, slug };
   } catch {
-    return defaultData;
+    return seedFor(slug);
   }
 }
 
-function saveToLocalStorage(data: TournamentData) {
+function saveToLocalStorage(slug: string, data: TournamentData) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(`${STORAGE_PREFIX}:${slug}`, JSON.stringify(data));
   } catch {
     /* storage non disponibile */
   }
 }
 
-export function TournamentProvider({ children }: { children: ReactNode }) {
+export function TournamentProvider({ slug, children }: { slug: string; children: ReactNode }) {
   const usesSupabase = isSupabaseConfigured();
   const [data, setDataState] = useState<TournamentData>(() =>
-    usesSupabase ? defaultData : loadFromLocalStorage(),
+    usesSupabase ? seedFor(slug) : loadFromLocalStorage(slug),
   );
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(usesSupabase ? 'loading' : 'local');
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -67,26 +71,29 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const applyingRemoteRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const applyRemote = useCallback((next: TournamentData, updatedAt: string) => {
-    const ts = new Date(updatedAt).getTime();
-    if (ts <= remoteVersionRef.current) return;
-    remoteVersionRef.current = ts;
-    applyingRemoteRef.current = true;
-    setDataState(next);
-    saveToLocalStorage(next);
-    setSyncStatus('synced');
-    setSyncError(null);
-    queueMicrotask(() => {
-      applyingRemoteRef.current = false;
-    });
-  }, []);
+  const applyRemote = useCallback(
+    (next: TournamentData, updatedAt: string) => {
+      const ts = new Date(updatedAt).getTime();
+      if (ts <= remoteVersionRef.current) return;
+      remoteVersionRef.current = ts;
+      applyingRemoteRef.current = true;
+      setDataState(next);
+      saveToLocalStorage(slug, next);
+      setSyncStatus('synced');
+      setSyncError(null);
+      queueMicrotask(() => {
+        applyingRemoteRef.current = false;
+      });
+    },
+    [slug],
+  );
 
   useEffect(() => {
     if (!usesSupabase) return;
 
     let cancelled = false;
 
-    fetchTournament()
+    fetchTournament(slug)
       .then((row) => {
         if (cancelled) return;
         if (row) {
@@ -101,24 +108,24 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
         hydratedRef.current = true;
         setSyncStatus('error');
         setSyncError(err instanceof Error ? err.message : 'Errore di caricamento');
-        setDataState(loadFromLocalStorage());
+        setDataState(loadFromLocalStorage(slug));
       });
 
     return () => {
       cancelled = true;
     };
-  }, [usesSupabase, applyRemote]);
+  }, [slug, usesSupabase, applyRemote]);
 
   useEffect(() => {
     if (!usesSupabase) return;
-    return subscribeTournament(({ data: next, updatedAt }) => {
+    return subscribeTournament(slug, ({ data: next, updatedAt }) => {
       applyRemote(next, updatedAt);
     });
-  }, [usesSupabase, applyRemote]);
+  }, [slug, usesSupabase, applyRemote]);
 
   useEffect(() => {
     if (!usesSupabase) {
-      saveToLocalStorage(data);
+      saveToLocalStorage(slug, data);
       return;
     }
 
@@ -130,14 +137,14 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       setSyncStatus('syncing');
       setSyncError(null);
 
-      saveTournament(data)
+      saveTournament(slug, data)
         .then((updatedAt) => {
           remoteVersionRef.current = new Date(updatedAt).getTime();
-          saveToLocalStorage(data);
+          saveToLocalStorage(slug, data);
           setSyncStatus('synced');
         })
         .catch((err: unknown) => {
-          saveToLocalStorage(data);
+          saveToLocalStorage(slug, data);
           setSyncStatus('error');
           setSyncError(err instanceof Error ? err.message : 'Errore di salvataggio');
         });
@@ -146,7 +153,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [data, usesSupabase]);
+  }, [slug, data, usesSupabase]);
 
   const value = useMemo<StoreValue>(
     () => ({
@@ -154,12 +161,13 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       update: (fn) => setDataState((prev) => fn(prev)),
       setData: (d) => setDataState(d),
       reset: () => {
+        const blank = blankTournamentData(slug, data.sport, data.info.name);
         if (usesSupabase) {
-          resetTournamentRemote()
+          resetTournamentRemote(slug)
             .then(() => {
               remoteVersionRef.current = 0;
-              localStorage.removeItem(STORAGE_KEY);
-              setDataState(defaultData);
+              localStorage.removeItem(`${STORAGE_PREFIX}:${slug}`);
+              setDataState(blank);
               setSyncStatus('synced');
               setSyncError(null);
             })
@@ -168,15 +176,15 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
               setSyncError(err instanceof Error ? err.message : 'Errore di ripristino');
             });
         } else {
-          localStorage.removeItem(STORAGE_KEY);
-          setDataState(defaultData);
+          localStorage.removeItem(`${STORAGE_PREFIX}:${slug}`);
+          setDataState(blank);
         }
       },
       syncStatus,
       syncError,
       usesSupabase,
     }),
-    [data, syncStatus, syncError, usesSupabase],
+    [slug, data, syncStatus, syncError, usesSupabase],
   );
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;

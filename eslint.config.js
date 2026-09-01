@@ -20,4 +20,17 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // shadcn/ui primitives and the data context/hook modules co-export a component with a
+    // tightly-coupled constant/hook by convention — safe, only affects HMR granularity.
+    files: [
+      'src/components/ui/**/*.{ts,tsx}',
+      'src/data/store.tsx',
+      'src/data/tournaments-registry.tsx',
+      'src/pages/admin/AdminGate.tsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
