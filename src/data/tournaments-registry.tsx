@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { getSupabase, getWriteKey, isSupabaseConfigured } from '@/lib/supabase';
 import { defaultData, type OpeningNight, type SiteState, type TournamentData } from '@/data/tournament';
+import { getErrorMessage } from '@/lib/utils';
 
 const LOCAL_DATA_PREFIX = 'torneo-patronale-data-v1:';
 
@@ -104,7 +105,7 @@ export function TournamentsRegistryProvider({ children }: { children: ReactNode 
         setTournaments(list);
         setError(null);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Errore di caricamento'))
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Errore di caricamento')))
       .finally(() => setLoading(false));
   }, [usesSupabase]);
 

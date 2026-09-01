@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ExternalLink, Plus, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 import { useTournamentsRegistry } from '@/data/tournaments-registry';
 import { siteStateBadge } from '@/lib/site-state';
 import { blankTournamentData, type SiteState } from '@/data/tournament';
@@ -42,7 +42,7 @@ function NewTournamentForm() {
         setSlug('');
         setSlugTouched(false);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Errore di creazione'))
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Errore di creazione')))
       .finally(() => setCreating(false));
   };
 

@@ -26,7 +26,7 @@ import {
   Volleyball,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 import { useTournament, type SyncStatus } from '@/data/store';
 import {
   phaseLabel,
@@ -442,7 +442,7 @@ function IscrizioniTab() {
         setRegistrations(rows);
         setError(null);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Errore di caricamento'))
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Errore di caricamento')))
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -457,20 +457,20 @@ function IscrizioniTab() {
       teams: [...d.teams, { id: `t${Date.now()}`, name: r.teamName, group: 'A' }],
     }));
     updateRegistrationStatus(slug, r.id, 'approved').then(load).catch((err: unknown) =>
-      setError(err instanceof Error ? err.message : 'Errore di aggiornamento'),
+      setError(getErrorMessage(err, 'Errore di aggiornamento')),
     );
   };
 
   const reject = (r: TeamRegistration) => {
     updateRegistrationStatus(slug, r.id, 'rejected').then(load).catch((err: unknown) =>
-      setError(err instanceof Error ? err.message : 'Errore di aggiornamento'),
+      setError(getErrorMessage(err, 'Errore di aggiornamento')),
     );
   };
 
   const remove = (r: TeamRegistration) => {
     if (!window.confirm('Eliminare definitivamente questa richiesta?')) return;
     deleteRegistration(slug, r.id).then(load).catch((err: unknown) =>
-      setError(err instanceof Error ? err.message : 'Errore di eliminazione'),
+      setError(getErrorMessage(err, 'Errore di eliminazione')),
     );
   };
 

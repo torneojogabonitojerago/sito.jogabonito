@@ -16,6 +16,7 @@ import {
 } from '@/data/tournament-api';
 import { blankTournamentData, defaultData, isValidTournamentData, type TournamentData } from '@/data/tournament';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { getErrorMessage } from '@/lib/utils';
 
 const STORAGE_PREFIX = 'torneo-patronale-data-v1';
 const SAVE_DEBOUNCE_MS = 800;
@@ -107,7 +108,7 @@ export function TournamentProvider({ slug, children }: { slug: string; children:
         if (cancelled) return;
         hydratedRef.current = true;
         setSyncStatus('error');
-        setSyncError(err instanceof Error ? err.message : 'Errore di caricamento');
+        setSyncError(getErrorMessage(err, 'Errore di caricamento'));
         setDataState(loadFromLocalStorage(slug));
       });
 
@@ -146,7 +147,7 @@ export function TournamentProvider({ slug, children }: { slug: string; children:
         .catch((err: unknown) => {
           saveToLocalStorage(slug, data);
           setSyncStatus('error');
-          setSyncError(err instanceof Error ? err.message : 'Errore di salvataggio');
+          setSyncError(getErrorMessage(err, 'Errore di salvataggio'));
         });
     }, SAVE_DEBOUNCE_MS);
 
@@ -173,7 +174,7 @@ export function TournamentProvider({ slug, children }: { slug: string; children:
             })
             .catch((err: unknown) => {
               setSyncStatus('error');
-              setSyncError(err instanceof Error ? err.message : 'Errore di ripristino');
+              setSyncError(getErrorMessage(err, 'Errore di ripristino'));
             });
         } else {
           localStorage.removeItem(`${STORAGE_PREFIX}:${slug}`);

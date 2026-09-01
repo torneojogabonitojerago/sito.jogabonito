@@ -143,6 +143,11 @@ function PreSeasonHome({ data }: { data: TournamentData }) {
           <p className="font-brush brush-glow mt-4 -rotate-1 text-center text-5xl text-primary sm:text-6xl drop-shadow-[0_0_30px_rgba(0,255,255,0.6)]">
             {data.info.brushSubtitle}
           </p>
+          {data.info.edition && (
+            <p className="mt-2 text-center text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">
+              {data.info.edition}
+            </p>
+          )}
 
           {countdownTarget && (
             <div className="mt-12">
@@ -242,6 +247,11 @@ function LiveSeasonHome({ data }: { data: TournamentData }) {
           <p className="font-brush brush-glow mt-4 -rotate-1 text-center text-5xl text-primary sm:text-6xl drop-shadow-[0_0_30px_rgba(0,255,255,0.6)]">
             {data.info.brushSubtitle}
           </p>
+          {data.info.edition && (
+            <p className="mt-2 text-center text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">
+              {data.info.edition}
+            </p>
+          )}
 
           <div className="mt-12 flex flex-wrap items-center justify-center gap-5">
             <GroupEntryCard group="A" title="Girone unico" />
@@ -350,6 +360,11 @@ function OffSeasonHome({ data }: { data: TournamentData }) {
           <p className="font-brush brush-glow mt-4 -rotate-1 text-center text-5xl text-primary sm:text-6xl drop-shadow-[0_0_30px_rgba(0,255,255,0.6)]">
             {data.info.brushSubtitle}
           </p>
+          {data.info.edition && (
+            <p className="mt-2 text-center text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">
+              {data.info.edition}
+            </p>
+          )}
 
           {hasChampion && (
             <div className="mt-12 flex flex-col items-center gap-3">

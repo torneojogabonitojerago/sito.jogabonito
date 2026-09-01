@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { CheckCircle2, Users } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 import { useTournament } from '@/data/store';
 import { submitRegistration } from '@/data/registrations-api';
 import PageHeader from '@/components/PageHeader';
@@ -56,7 +56,7 @@ function RegistrationForm({ slug }: { slug: string }) {
       notes: form.notes.trim(),
     })
       .then(() => setDone(true))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Errore di invio, riprova.'))
+      .catch((err: unknown) => setError(getErrorMessage(err, 'Errore di invio, riprova.')))
       .finally(() => setSubmitting(false));
   };
 
