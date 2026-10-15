@@ -289,7 +289,7 @@ export default function Home() {
             <span className="block text-white [text-shadow:0_0_14px_rgba(255,0,255,0.55),0_0_40px_rgba(0,255,255,0.25)]">
               {home.title1}
             </span>
-            <span className="text-outline-neon block">{home.title2}</span>
+            <span className="text-outline-neon mt-[0.08em] block">{home.title2}</span>
           </h1>
 
           <p className="font-brush mt-2.5 origin-left -rotate-2 text-[clamp(40px,4.6vw,60px)] font-bold leading-none text-primary [text-shadow:0_0_18px_rgba(0,255,255,0.55),0_0_30px_rgba(255,0,255,0.3)]">
