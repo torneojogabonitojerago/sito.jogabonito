@@ -9,11 +9,12 @@ import {
   registrationsOpen,
   setsWon,
   teamName,
-  tournamentYear,
   type TournamentData,
 } from '@/data/tournament';
 import CountdownTimer from '@/components/CountdownTimer';
-import { globalMode, SITE_HOME, SOCIAL_LINKS, type SiteMode } from '@/lib/site-state';
+import { useSiteConfig } from '@/data/site-config';
+import { useSiteMode } from '@/data/use-site-mode';
+import { SOCIAL_LINKS, type SiteMode } from '@/lib/site-state';
 import { cn } from '@/lib/utils';
 
 /* La home è UGUALE per tutti i tornei: aggrega quelli attivi. */
@@ -229,18 +230,19 @@ function TournamentCard({ t, mode }: { t: TournamentSummary; mode: SiteMode }) {
 
 export default function Home() {
   const { tournaments, loading, error } = useTournamentsRegistry();
+  const { config } = useSiteConfig();
+  const home = config.home;
+  const mode = useSiteMode();
 
   const datas = tournaments.map((t) => t.data);
-  const mode = globalMode(datas);
   const featured = pickFeatured(tournaments);
   const firstOpen = tournaments.find((t) => registrationsOpen(t.data));
   const firstAlbo = tournaments.find((t) => t.data.hallOfFame.length > 0) ?? featured;
 
-  // inizio del torneo per il countdown: prima partita dei tornei in arrivo
-  const preDatas = datas.filter((d) => d.siteState === 'pre-season');
-  const start = startOf(preDatas.length ? preDatas : datas);
+  // inizio del torneo per il countdown: quello impostato in admin, altrimenti la prima partita
+  const configuredStart = home.start ? new Date(home.start).getTime() : NaN;
+  const start = Number.isNaN(configuredStart) ? startOf(datas) : configuredStart;
 
-  const year = featured ? tournamentYear(featured.data) : String(new Date().getFullYear());
   const teamsCount = datas.reduce((n, d) => n + d.teams.length, 0);
 
   const progressShort =
@@ -268,7 +270,7 @@ export default function Home() {
   const meta = [
     { label: 'Tornei', value: String(tournaments.length) },
     { label: 'Squadre', value: String(teamsCount) },
-    { label: 'Luogo', value: featured?.data.info.location || '—' },
+    { label: 'Luogo', value: home.place || featured?.data.info.location || '—' },
   ];
 
   return (
@@ -278,20 +280,20 @@ export default function Home() {
         <div className="flex min-w-0 flex-col gap-7">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="rounded-full bg-gradient-to-r from-primary to-cyan-500 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-white shadow-[0_0_20px_rgba(255,0,255,0.4)]">
-              {SITE_HOME.badge}
+              {home.badge}
             </span>
             <span className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">{progressShort}</span>
           </div>
 
           <h1 className="font-display text-[clamp(68px,10.5vw,168px)] uppercase leading-[0.86]">
             <span className="block text-white [text-shadow:0_0_14px_rgba(255,0,255,0.55),0_0_40px_rgba(0,255,255,0.25)]">
-              {SITE_HOME.title1}
+              {home.title1}
             </span>
-            <span className="text-outline-neon block">{SITE_HOME.title2}</span>
+            <span className="text-outline-neon block">{home.title2}</span>
           </h1>
 
           <p className="font-brush mt-2.5 origin-left -rotate-2 text-[clamp(40px,4.6vw,60px)] font-bold leading-none text-primary [text-shadow:0_0_18px_rgba(0,255,255,0.55),0_0_30px_rgba(255,0,255,0.3)]">
-            {SITE_HOME.brush} {year}
+            {home.brush}
           </p>
 
           <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] border-y border-white/10">

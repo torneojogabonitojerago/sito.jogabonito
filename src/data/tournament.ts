@@ -14,10 +14,13 @@ export interface TournamentInfo {
   organizer: string;
 }
 
+export const GROUP_IDS = ['A', 'B', 'C', 'D'] as const;
+export type GroupId = (typeof GROUP_IDS)[number];
+
 export interface Team {
   id: string;
   name: string;
-  group: 'A';
+  group: GroupId;
 }
 
 export interface SetScore {
@@ -33,13 +36,15 @@ export interface Match {
   date: string; // AAAA-MM-GG
   time: string; // HH:MM
   phase: MatchPhase;
-  group?: 'A';
+  group?: GroupId;
   home: string; // id squadra (vuoto se non definita)
   away: string;
   homeLabel?: string; // es. "1ª Girone A"
   awayLabel?: string;
   sets: SetScore[];
   status: MatchStatus;
+  field?: string; // es. "Campo centrale"
+  note?: string;
 }
 
 export interface ScheduleRow {
@@ -72,6 +77,30 @@ export interface OffSeasonInfo {
   teaserMessage: string;
 }
 
+/* ---------- moduli di iscrizione configurabili ---------- */
+
+export type FormFieldType = 'text' | 'tel' | 'email' | 'number' | 'textarea' | 'select' | 'check';
+
+export interface FormField {
+  id: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  placeholder?: string;
+  /** solo per "select": opzioni separate da virgola */
+  options?: string;
+}
+
+export interface RegistrationForm {
+  id: string;
+  name: string;
+  intro: string;
+  button: string;
+  success: string;
+  open: boolean;
+  fields: FormField[];
+}
+
 export interface HallOfFameEdition {
   year: string;
   winner: string;
@@ -98,6 +127,12 @@ export interface TournamentData {
   siteState: SiteState;
   preSeason: PreSeasonInfo;
   offSeason: OffSeasonInfo;
+  /** numero di gironi (1 = girone unico) */
+  groupCount: number;
+  forms: RegistrationForm[];
+  /** torneo chiuso e archiviato: sparisce da home, barra tornei e selettore admin */
+  archived?: boolean;
+  archivedAt?: string;
 }
 
 /* ---------- DATI INIZIALI ---------- */
@@ -225,6 +260,10 @@ export const defaultData: TournamentData = {
     teaserTitle: 'Ci vediamo alla prossima edizione!',
     teaserMessage: 'Il torneo è concluso. Seguici sui social per non perderti data e iscrizioni della prossima stagione.',
   },
+
+  groupCount: 1,
+
+  forms: [],
 };
 
 export function isValidTournamentData(value: unknown): value is TournamentData {
@@ -273,7 +312,61 @@ export function blankTournamentData(slug: string, sport: string, name: string): 
       teaserTitle: 'Ci vediamo alla prossima edizione!',
       teaserMessage: 'Il torneo è concluso. Seguici sui social per non perderti data e iscrizioni della prossima stagione.',
     },
+    groupCount: 1,
+    forms: [newForm(true)],
   };
+}
+
+/* ============================================================
+   MODULI DI ISCRIZIONE
+   ============================================================ */
+
+export const newId = (prefix: string): string =>
+  `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+/** Campi del modulo "Iscrizione squadre" (gli stessi del vecchio form fisso). */
+export function defaultFormFields(idOf: (i: number) => string = () => newId('f')): FormField[] {
+  const fields: Omit<FormField, 'id'>[] = [
+    { label: 'Nome squadra', type: 'text', required: true, placeholder: 'Es. Real Campanile' },
+    { label: 'Referente', type: 'text', required: true, placeholder: 'Nome e cognome' },
+    { label: 'Telefono', type: 'tel', required: true, placeholder: '333 123 4567' },
+    { label: 'Email', type: 'email', required: false, placeholder: 'nome@email.it' },
+    { label: 'Numero giocatori', type: 'select', required: false, options: '2, 3, 4' },
+    { label: 'Note', type: 'textarea', required: false },
+    { label: 'Ho letto e accetto il regolamento', type: 'check', required: true },
+  ];
+  return fields.map((f, i) => ({ ...f, id: idOf(i) }));
+}
+
+/** Id fisso del modulo ricavato dal vecchio form: resta uguale finché l'admin non salva. */
+const LEGACY_FORM_ID = 'fm-iscrizioni';
+
+export function newForm(open: boolean, intro = '', legacy = false): RegistrationForm {
+  return {
+    id: legacy ? LEGACY_FORM_ID : newId('fm'),
+    name: 'Iscrizione squadre',
+    intro,
+    button: 'Invia iscrizione',
+    success: 'Ti contatteremo a breve per confermare il posto e il girone.',
+    open,
+    fields: defaultFormFields(legacy ? (i) => `${LEGACY_FORM_ID}-f${i + 1}` : undefined),
+  };
+}
+
+/**
+ * Completa i dati letti da Supabase / localStorage con i campi introdotti dopo:
+ * i tornei salvati prima del redesign non hanno moduli né numero di gironi.
+ */
+export function normalizeTournament(raw: Partial<TournamentData>, slug: string): TournamentData {
+  const fallback = blankTournamentData(slug, raw.sport ?? '', raw.info?.name ?? 'Torneo');
+  const data: TournamentData = { ...fallback, ...raw, slug };
+  if (!Array.isArray(raw.forms)) {
+    // il vecchio form fisso diventa il primo modulo, aperto se lo erano le iscrizioni
+    const pre = raw.preSeason ?? fallback.preSeason;
+    data.forms = [newForm(raw.siteState === 'pre-season' && pre.registrationsOpen, pre.registrationsInfo, true)];
+  }
+  data.groupCount = Math.min(4, Math.max(1, Math.round(Number(raw.groupCount) || 1)));
+  return data;
 }
 
 /* ============================================================
@@ -313,7 +406,7 @@ export interface StandingRow {
   pointsAgainst: number;
 }
 
-export function computeStandings(teams: Team[], matches: Match[], group?: 'A'): StandingRow[] {
+export function computeStandings(teams: Team[], matches: Match[], group?: GroupId): StandingRow[] {
   const rows = new Map<string, StandingRow>();
   teams
     .filter((t) => !group || t.group === group)
@@ -411,8 +504,63 @@ export function nextMatch(matches: Match[]): Match | undefined {
   );
 }
 
-export const registrationsOpen = (d: TournamentData): boolean =>
-  d.siteState === 'pre-season' && d.preSeason.registrationsOpen;
+export const registrationsOpen = (d: TournamentData): boolean => d.forms.some((f) => f.open);
+
+/** Gironi in uso: ["A"], ["A","B"], … */
+export const groupsOf = (d: TournamentData): GroupId[] => GROUP_IDS.slice(0, d.groupCount);
+
+/** Girone della squadra, riportato ad "A" se è fuori dai gironi in uso. */
+export const groupOfTeam = (d: TournamentData, team: Team): GroupId =>
+  groupsOf(d).includes(team.group) ? team.group : 'A';
+
+/** Quante squadre per girone passano in semifinale. */
+export const qualifiersPerGroup = (groupCount: number): number => ({ 1: 4, 2: 2 })[groupCount] ?? 1;
+
+export const groupLabel = (d: TournamentData, g: GroupId): string =>
+  d.groupCount === 1 ? 'Girone unico' : `Girone ${g}`;
+
+/** Classifica di ogni girone (squadre fuori dai gironi in uso finiscono nel girone A). */
+export function groupStandings(d: TournamentData): { group: GroupId; rows: StandingRow[] }[] {
+  const teams = d.teams.map((t) => ({ ...t, group: groupOfTeam(d, t) }));
+  return groupsOf(d).map((g) => ({ group: g, rows: computeStandings(teams, d.matches, g) }));
+}
+
+/** Abbinamenti delle semifinali in base al numero di gironi: [[nome, etichetta], [nome, etichetta]] ×2. */
+export function semifinalProjection(d: TournamentData): [string, string][][] {
+  const st = groupStandings(d);
+  const played = d.matches.some((m) => m.phase === 'gironi' && m.status === 'finished');
+  const at = (g: number, i: number, label: string): [string, string] => [
+    (played ? st[g]?.rows[i]?.team.name : undefined) ?? 'Da definire',
+    label,
+  ];
+  switch (st.length) {
+    case 2:
+      return [
+        [at(0, 0, '1ª A'), at(1, 1, '2ª B')],
+        [at(1, 0, '1ª B'), at(0, 1, '2ª A')],
+      ];
+    case 3: {
+      const best = st
+        .map((x) => x.rows[1])
+        .filter(Boolean)
+        .sort((a, b) => b.points - a.points || b.setDiff - a.setDiff)[0];
+      return [
+        [at(0, 0, '1ª A'), [(played ? best?.team.name : undefined) ?? 'Da definire', 'Miglior 2ª']],
+        [at(1, 0, '1ª B'), at(2, 0, '1ª C')],
+      ];
+    }
+    case 4:
+      return [
+        [at(0, 0, '1ª A'), at(3, 0, '1ª D')],
+        [at(1, 0, '1ª B'), at(2, 0, '1ª C')],
+      ];
+    default:
+      return [
+        [at(0, 0, '1ª'), at(0, 3, '4ª')],
+        [at(0, 1, '2ª'), at(0, 2, '3ª')],
+      ];
+  }
+}
 
 /** Vero se il nome è compilato (non vuoto e non "Da definire"). */
 export const isDefined = (name?: string): name is string =>
@@ -443,3 +591,32 @@ export const initials = (name: string): string => {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 };
+
+/**
+ * Podio: vincente e perdente della finale, vincente della finalina.
+ * Se mancano, si completa con la classifica dei gironi. Restituisce sempre 3 nomi ("—" se ignoto).
+ */
+export function podiumOf(d: TournamentData): [string, string, string] {
+  const resultOf = (phase: MatchPhase): [string, string] | null => {
+    const m = d.matches.find((x) => x.phase === phase && x.status === 'finished' && x.home && x.away);
+    if (!m) return null;
+    const sw = setsWon(m);
+    if (sw.home === sw.away) return null;
+    const home = teamName(d.teams, m, 'home');
+    const away = teamName(d.teams, m, 'away');
+    return sw.home > sw.away ? [home, away] : [away, home];
+  };
+  const finale = resultOf('finale');
+  const finalina = resultOf('finalina');
+  const out: (string | null)[] = finale ? [finale[0], finale[1], finalina?.[0] ?? null] : [null, null, null];
+
+  const played = d.matches.some((m) => m.phase === 'gironi' && m.status === 'finished');
+  if (played) {
+    for (const r of computeStandings(d.teams, d.matches)) {
+      const i = out.indexOf(null);
+      if (i < 0) break;
+      if (!out.includes(r.team.name)) out[i] = r.team.name;
+    }
+  }
+  return out.map((x) => x ?? '—') as [string, string, string];
+}

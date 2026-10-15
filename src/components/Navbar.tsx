@@ -1,7 +1,8 @@
 import { Link, NavLink, useLocation, useParams } from 'react-router';
 import { pickFeatured, useTournamentsRegistry } from '@/data/tournaments-registry';
 import { registrationsOpen } from '@/data/tournament';
-import { globalMode, modeBadge, modeOf, type ModeBadge } from '@/lib/site-state';
+import { useSiteMode } from '@/data/use-site-mode';
+import { modeBadge, type ModeBadge } from '@/lib/site-state';
 import { cn } from '@/lib/utils';
 
 const links = [
@@ -10,7 +11,6 @@ const links = [
   { to: 'classifiche', label: 'Classifiche' },
   { to: 'iscrizioni', label: 'Iscrizioni' },
   { to: 'albo-d-oro', label: "Albo d'Oro" },
-  { to: 'regolamento', label: 'Regolamento' },
 ];
 
 const pillCls = ({ isActive }: { isActive: boolean }) =>
@@ -35,8 +35,7 @@ export default function Navbar() {
 
   const current = slug ? tournaments.find((t) => t.slug === slug) : undefined;
   const active = current ?? pickFeatured(tournaments);
-  const mode = current ? modeOf[current.siteState] : globalMode(tournaments.map((t) => t.data));
-  const badge = modeBadge[mode];
+  const badge = modeBadge[useSiteMode()];
 
   const isAdmin = pathname.split('/').includes('admin');
   const section = pathname.split('/')[2] ?? '';
@@ -63,6 +62,14 @@ export default function Navbar() {
                   {l.label}
                 </NavLink>
               ))}
+            <NavLink to="/archivio" className={pillCls}>
+              Archivio
+            </NavLink>
+            {active && (
+              <NavLink to={`/${active.slug}/regolamento`} className={pillCls}>
+                Regolamento
+              </NavLink>
+            )}
           </nav>
 
           <Link

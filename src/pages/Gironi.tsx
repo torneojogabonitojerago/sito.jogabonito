@@ -1,10 +1,13 @@
 import {
   byDateTime,
-  computeStandings,
   formatDay,
   formatDayShort,
+  groupLabel,
+  groupOfTeam,
+  groupsOf,
   groupStageDates,
   initials,
+  semifinalProjection,
   setsWon,
   teamName,
   type Match,
@@ -92,19 +95,9 @@ export default function Gironi() {
   ];
 
   /* semifinali: squadre reali se assegnate, altrimenti proiezione dalla classifica */
-  const standings = computeStandings(teams, matches);
   const projected = groupMatches.some((m) => m.status === 'finished');
-  const at = (i: number) => (projected ? standings[i]?.team.name : undefined) ?? 'Da definire';
-  const projection: [string, string][][] = [
-    [
-      [at(0), '1ª'],
-      [at(3), '4ª'],
-    ],
-    [
-      [at(1), '2ª'],
-      [at(2), '3ª'],
-    ],
-  ];
+  const projection = semifinalProjection(data);
+  const groups = groupsOf(data);
   const semiCards = [0, 1].map((i) => {
     const m = semis[i];
     const side = (s: 'home' | 'away', j: 0 | 1) =>
@@ -123,7 +116,11 @@ export default function Gironi() {
 
   return (
     <div>
-      <PageHeader title="Gironi" brush="calendario e cammino" aside={`Girone unico · ${teams.length} squadre`} />
+      <PageHeader
+        title="Gironi"
+        brush="calendario e cammino"
+        aside={`${groups.length === 1 ? 'Girone unico' : `${groups.length} gironi`} · ${teams.length} squadre`}
+      />
 
       <section className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pb-24 sm:px-6">
         {/* step */}
@@ -144,21 +141,31 @@ export default function Gironi() {
         </div>
 
         <div className="grid items-start gap-7 lg:grid-cols-3">
-          {/* girone */}
-          <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101010]">
-            <div className="flex items-baseline justify-between border-b-2 border-primary px-6 py-5">
-              <span className="font-display text-[26px] uppercase text-white">Girone unico</span>
-              <span className="label-xs">{teams.length} squadre</span>
-            </div>
-            {teams.length === 0 && <p className="px-6 py-5 text-sm text-zinc-500">Squadre in arrivo.</p>}
-            {teams.map((t) => (
-              <div key={t.id} className="flex items-center gap-3.5 border-t border-white/5 px-6 py-[13px] first-of-type:border-t-0">
-                <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-primary/[0.35] bg-primary/[0.12] font-display text-[13px] text-primary">
-                  {initials(t.name)}
-                </span>
-                <span className="font-display text-lg uppercase text-white">{t.name}</span>
-              </div>
-            ))}
+          {/* gironi */}
+          <div className="flex flex-col gap-4">
+            {groups.map((g) => {
+              const list = teams.filter((t) => groupOfTeam(data, t) === g);
+              return (
+                <div key={g} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101010]">
+                  <div className="flex items-baseline justify-between border-b-2 border-primary px-6 py-5">
+                    <span className="font-display text-[26px] uppercase text-white">{groupLabel(data, g)}</span>
+                    <span className="label-xs">{list.length} squadre</span>
+                  </div>
+                  {list.length === 0 && <p className="px-6 py-5 text-sm text-zinc-500">Squadre in arrivo.</p>}
+                  {list.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-3.5 border-t border-white/5 px-6 py-[13px] first-of-type:border-t-0"
+                    >
+                      <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-primary/[0.35] bg-primary/[0.12] font-display text-[13px] text-primary">
+                        {initials(t.name)}
+                      </span>
+                      <span className="font-display text-lg uppercase text-white">{t.name}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
 
           {/* calendario per giornata */}
@@ -199,7 +206,7 @@ export default function Gironi() {
               <div>
                 <h2 className="font-display text-[clamp(34px,4vw,48px)] uppercase leading-none text-white">Fasi finali</h2>
                 <p className="font-brush mt-1 text-[28px] text-cyan-400">
-                  {projected ? 'proiezione sulla classifica attuale' : 'passano le prime 4 del girone'}
+                  {projected ? 'proiezione sulla classifica attuale' : 'chi passa il turno'}
                 </p>
               </div>
               {finalsRange && (

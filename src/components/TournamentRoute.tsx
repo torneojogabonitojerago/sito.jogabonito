@@ -4,7 +4,7 @@ import { useTournamentsRegistry } from '@/data/tournaments-registry';
 
 export default function TournamentRoute() {
   const { slug } = useParams<{ slug: string }>();
-  const { tournaments, loading } = useTournamentsRegistry();
+  const { tournaments, archived, loading } = useTournamentsRegistry();
 
   if (!slug) return null;
 
@@ -14,7 +14,7 @@ export default function TournamentRoute() {
     );
   }
 
-  const exists = tournaments.some((t) => t.slug === slug);
+  const exists = [...tournaments, ...archived].some((t) => t.slug === slug);
   if (!exists) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">

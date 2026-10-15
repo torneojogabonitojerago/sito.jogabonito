@@ -1,5 +1,5 @@
 import { getSupabase, getWriteKey } from '@/lib/supabase';
-import { blankTournamentData, isValidTournamentData, type TournamentData } from '@/data/tournament';
+import { isValidTournamentData, normalizeTournament, type TournamentData } from '@/data/tournament';
 
 export interface TournamentRow {
   data: TournamentData;
@@ -17,11 +17,8 @@ export async function fetchTournament(slug: string): Promise<TournamentRow | nul
   if (error) throw error;
   if (!data?.payload || !isValidTournamentData(data.payload)) return null;
 
-  const payload = data.payload as Partial<TournamentData>;
-  const fallback = blankTournamentData(slug, payload.sport ?? '', payload.info?.name ?? 'Torneo');
-
   return {
-    data: { ...fallback, ...payload, slug },
+    data: normalizeTournament(data.payload as Partial<TournamentData>, slug),
     updatedAt: data.updated_at as string,
   };
 }

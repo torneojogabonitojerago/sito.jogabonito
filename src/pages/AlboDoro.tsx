@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import PageHeader from '@/components/PageHeader';
 import { useTournament } from '@/data/store';
 import { useTournamentsRegistry } from '@/data/tournaments-registry';
@@ -9,10 +10,10 @@ interface EditionView extends HallOfFameEdition {
 
 export default function AlboDoro() {
   const { data } = useTournament();
-  const { tournaments } = useTournamentsRegistry();
+  const { tournaments, archived } = useTournamentsRegistry();
 
-  /* edizioni di tutti i tornei (il torneo aperto con i dati più freschi), dalla più recente */
-  const sources = [data, ...tournaments.filter((t) => t.slug !== data.slug).map((t) => t.data)];
+  /* edizioni di tutti i tornei, anche archiviati (quello aperto con i dati più freschi), dalla più recente */
+  const sources = [data, ...[...tournaments, ...archived].filter((t) => t.slug !== data.slug).map((t) => t.data)];
   const seen = new Set<string>();
   const editions: EditionView[] = [];
   for (const d of sources) {
@@ -37,6 +38,15 @@ export default function AlboDoro() {
       />
 
       <section className="mx-auto grid max-w-[1280px] grid-cols-[repeat(auto-fill,minmax(min(100%,340px),1fr))] gap-5 px-4 pb-24 sm:px-6">
+        {archived.length > 0 && (
+          <Link
+            to="/archivio"
+            className="col-span-full flex items-center justify-between gap-3 rounded-[14px] border border-amber-500/30 bg-amber-500/5 px-[22px] py-[18px] text-left font-display text-[17px] uppercase tracking-[0.08em] text-amber-400 transition-colors hover:border-amber-400 hover:text-amber-400"
+          >
+            Classifiche e risultati delle edizioni passate
+            <span>Archivio →</span>
+          </Link>
+        )}
         {showNextEdition && (
           <div className="flex min-h-[260px] flex-col justify-center gap-2.5 rounded-[18px] border border-dashed border-primary/40 bg-primary/[0.04] p-8">
             <span className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Edizione {year}</span>

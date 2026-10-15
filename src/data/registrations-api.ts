@@ -1,5 +1,10 @@
 import { getSupabase, getWriteKey, isSupabaseConfigured } from '@/lib/supabase';
-import type { RegistrationInput, RegistrationStatus, TeamRegistration } from '@/data/registrations';
+import type {
+  RegistrationAnswer,
+  RegistrationInput,
+  RegistrationStatus,
+  TeamRegistration,
+} from '@/data/registrations';
 
 const LOCAL_PREFIX = 'torneo-patronale-registrations-v1';
 
@@ -8,7 +13,13 @@ function loadLocal(slug: string): TeamRegistration[] {
     const raw = localStorage.getItem(`${LOCAL_PREFIX}:${slug}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as TeamRegistration[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    // le iscrizioni salvate col vecchio form fisso non hanno le risposte
+    return (parsed as (TeamRegistration & { teamName?: string })[]).map((r) =>
+      Array.isArray(r.answers)
+        ? r
+        : { ...r, formId: null, title: r.teamName ?? '', answers: [{ label: 'Nome squadra', value: r.teamName ?? '' }] },
+    );
   } catch {
     return [];
   }
@@ -32,28 +43,48 @@ interface RegistrationRow {
   notes: string;
   status: RegistrationStatus;
   created_at: string;
+  /* colonne aggiunte con i moduli configurabili (possono mancare se lo SQL non è stato lanciato) */
+  form_id?: string | null;
+  answers?: RegistrationAnswer[] | null;
 }
 
 function fromRow(row: RegistrationRow): TeamRegistration {
+  const answers =
+    row.answers && row.answers.length > 0
+      ? row.answers
+      : [
+          { label: 'Nome squadra', value: row.team_name },
+          { label: 'Referente', value: row.contact_name },
+          { label: 'Telefono', value: row.contact_phone },
+          { label: 'Email', value: row.contact_email },
+          { label: 'Numero giocatori', value: row.players_count ? String(row.players_count) : '' },
+          { label: 'Note', value: row.notes },
+        ].filter((a) => a.value);
   return {
     id: row.id,
-    teamName: row.team_name,
-    contactName: row.contact_name,
-    contactPhone: row.contact_phone,
-    contactEmail: row.contact_email,
-    playersCount: row.players_count,
-    notes: row.notes,
+    formId: row.form_id ?? null,
+    title: row.team_name,
+    answers,
     status: row.status,
     createdAt: row.created_at,
   };
 }
+
+const answerOfType = (input: RegistrationInput, type: string) =>
+  input.answers.find((a) => a.type === type && a.value)?.value ?? '';
+
+/** Errore di PostgREST quando una colonna non esiste (SQL dei moduli non ancora eseguito). */
+const isMissingColumn = (err: { code?: string; message?: string }) =>
+  err.code === 'PGRST204' || /column/i.test(err.message ?? '');
 
 export async function submitRegistration(slug: string, input: RegistrationInput): Promise<void> {
   if (!isSupabaseConfigured()) {
     const list = loadLocal(slug);
     list.unshift({
       id: `local-${Date.now()}`,
-      ...input,
+      formId: input.formId,
+      title: input.title,
+      answers: input.answers,
       status: 'pending',
       createdAt: new Date().toISOString(),
     });
@@ -61,17 +92,30 @@ export async function submitRegistration(slug: string, input: RegistrationInput)
     return;
   }
 
+  const base = {
+    tournament_slug: slug,
+    team_name: input.title,
+    contact_phone: answerOfType(input, 'tel'),
+    contact_email: answerOfType(input, 'email'),
+  };
   const supabase = getSupabase();
   const { error } = await supabase.from('team_registrations').insert({
-    tournament_slug: slug,
-    team_name: input.teamName,
-    contact_name: input.contactName,
-    contact_phone: input.contactPhone,
-    contact_email: input.contactEmail,
-    players_count: input.playersCount,
-    notes: input.notes,
+    ...base,
+    contact_name: '',
+    notes: '',
+    form_id: input.formId,
+    answers: input.answers,
   });
-  if (error) throw error;
+  if (!error) return;
+  if (!isMissingColumn(error)) throw error;
+
+  // compatibilità: senza le colonne nuove le risposte finiscono nelle note
+  const { error: legacyError } = await supabase.from('team_registrations').insert({
+    ...base,
+    contact_name: input.answers[1]?.value ?? '',
+    notes: input.answers.map((a) => `${a.label}: ${a.value}`).join('\n'),
+  });
+  if (legacyError) throw legacyError;
 }
 
 export async function listRegistrations(slug: string): Promise<TeamRegistration[]> {

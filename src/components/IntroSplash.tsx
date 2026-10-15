@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { cachedSiteConfig, useSiteConfig } from '@/data/site-config';
 
 /* Intro animata all'apertura del sito: una volta per sessione, si salta con un click,
-   non parte se l'utente ha chiesto di ridurre le animazioni. Durata ~3,75s. */
+   non parte se l'utente ha chiesto di ridurre le animazioni o se è disattivata in admin. Durata ~3,75s. */
 
 const SEEN_KEY = 'jb-intro-seen';
 /* di norma si chiude a fine animazione; il timer è solo una rete di sicurezza */
@@ -10,6 +11,7 @@ const FALLBACK_MS = 6000;
 function shouldShow(): boolean {
   try {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if (!cachedSiteConfig().intro) return false;
     return sessionStorage.getItem(SEEN_KEY) !== '1';
   } catch {
     return false;
@@ -113,6 +115,7 @@ const sweepStyle: CSSProperties = {
 };
 
 export default function IntroSplash() {
+  const { config } = useSiteConfig();
   const [visible, setVisible] = useState(shouldShow);
 
   useEffect(() => {
@@ -122,7 +125,7 @@ export default function IntroSplash() {
     return () => clearTimeout(t);
   }, [visible]);
 
-  if (!visible) return null;
+  if (!visible || !config.intro) return null;
 
   return (
     <div

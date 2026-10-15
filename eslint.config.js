@@ -27,7 +27,9 @@ export default defineConfig([
       'src/components/ui/**/*.{ts,tsx}',
       'src/data/store.tsx',
       'src/data/tournaments-registry.tsx',
+      'src/data/site-config.tsx',
       'src/pages/admin/AdminGate.tsx',
+      'src/pages/admin/ui.tsx',
     ],
     rules: {
       'react-refresh/only-export-components': 'off',

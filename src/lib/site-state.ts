@@ -63,14 +63,6 @@ export const modeBadge: Record<SiteMode, ModeBadge> = {
   },
 };
 
-/** Testi fissi della home (diventeranno configurabili dall'area organizzatori). */
-export const SITE_HOME = {
-  badge: 'Festa Patronale',
-  title1: 'Torneo',
-  title2: 'Patronale',
-  brush: 'Joga Bonito',
-};
-
 export const SOCIAL_LINKS = {
   instagram: 'https://www.instagram.com/tornei_jogabonito_jerago?igsh=Znh5d2R3dTZ1YWlv',
   tiktok: 'https://www.tiktok.com/@torneo.joga.bonit?_r=1&_t=ZN-986yMJ512m6',

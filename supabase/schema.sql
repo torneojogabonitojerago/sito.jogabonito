@@ -342,3 +342,18 @@ GRANT EXECUTE ON FUNCTION public.delete_registration(text, text, uuid) TO anon, 
 -- La vecchia tabella tournament_data resta al suo posto (non la cancello):
 -- superata ma innocua. Puoi eliminarla tu manualmente quando sarai sicuro
 -- che il nuovo hub multi-torneo funziona correttamente.
+
+-- ============================================================
+-- 7. Moduli di iscrizione configurabili (redesign 2026)
+--    Stesso contenuto di migrations/2026-10-15_moduli-iscrizione.sql
+-- ============================================================
+
+ALTER TABLE public.team_registrations
+  ADD COLUMN IF NOT EXISTS form_id text,
+  ADD COLUMN IF NOT EXISTS answers jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+NOTIFY pgrst, 'reload schema';
+
+-- Nota: le impostazioni globali del sito (home, modalità, intro) sono salvate
+-- come riga speciale della tabella tournaments con slug '__site':
+-- non serve nessuna tabella nuova.

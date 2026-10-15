@@ -14,7 +14,13 @@ import {
   saveTournament,
   subscribeTournament,
 } from '@/data/tournament-api';
-import { blankTournamentData, defaultData, isValidTournamentData, type TournamentData } from '@/data/tournament';
+import {
+  blankTournamentData,
+  defaultData,
+  isValidTournamentData,
+  normalizeTournament,
+  type TournamentData,
+} from '@/data/tournament';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -28,7 +34,13 @@ interface StoreValue {
   update: (fn: (d: TournamentData) => TournamentData) => void;
   setData: (d: TournamentData) => void;
   reset: () => void;
+  /** sostituisce i dati e li salva subito, senza aspettare il debounce */
+  saveNow: (d: TournamentData) => Promise<void>;
+  /** annulla il salvataggio in attesa (prima di eliminare il torneo) */
+  discardPending: () => void;
   syncStatus: SyncStatus;
+  /** ora dell'ultimo salvataggio riuscito */
+  savedAt: Date | null;
   syncError: string | null;
   usesSupabase: boolean;
 }
@@ -36,7 +48,7 @@ interface StoreValue {
 const StoreCtx = createContext<StoreValue | null>(null);
 
 function seedFor(slug: string): TournamentData {
-  return slug === defaultData.slug ? defaultData : blankTournamentData(slug, 'Torneo', 'Nuovo torneo');
+  return slug === defaultData.slug ? normalizeTournament(defaultData, slug) : blankTournamentData(slug, 'Torneo', 'Nuovo torneo');
 }
 
 function loadFromLocalStorage(slug: string): TournamentData {
@@ -45,7 +57,7 @@ function loadFromLocalStorage(slug: string): TournamentData {
     if (!raw) return seedFor(slug);
     const parsed = JSON.parse(raw) as unknown;
     if (!isValidTournamentData(parsed)) return seedFor(slug);
-    return { ...seedFor(slug), ...parsed, slug };
+    return normalizeTournament({ ...seedFor(slug), ...parsed }, slug);
   } catch {
     return seedFor(slug);
   }
@@ -69,22 +81,23 @@ export function TournamentProvider({ slug, children }: { slug: string; children:
 
   const hydratedRef = useRef(!usesSupabase);
   const remoteVersionRef = useRef(0);
-  const applyingRemoteRef = useRef(false);
+  /* ultimi dati arrivati dal database: non vanno mai rispediti indietro (un visitatore non deve scrivere) */
+  const remoteDataRef = useRef<TournamentData | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* salvataggio in attesa del debounce: va eseguito subito se il torneo viene chiuso */
+  const pendingSaveRef = useRef<(() => void) | null>(null);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   const applyRemote = useCallback(
     (next: TournamentData, updatedAt: string) => {
       const ts = new Date(updatedAt).getTime();
       if (ts <= remoteVersionRef.current) return;
       remoteVersionRef.current = ts;
-      applyingRemoteRef.current = true;
+      remoteDataRef.current = next;
       setDataState(next);
       saveToLocalStorage(slug, next);
       setSyncStatus('synced');
       setSyncError(null);
-      queueMicrotask(() => {
-        applyingRemoteRef.current = false;
-      });
     },
     [slug],
   );
@@ -130,11 +143,12 @@ export function TournamentProvider({ slug, children }: { slug: string; children:
       return;
     }
 
-    if (!hydratedRef.current || applyingRemoteRef.current) return;
+    if (!hydratedRef.current || data === remoteDataRef.current) return;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
-    saveTimerRef.current = setTimeout(() => {
+    const run = () => {
+      pendingSaveRef.current = null;
       setSyncStatus('syncing');
       setSyncError(null);
 
@@ -143,18 +157,24 @@ export function TournamentProvider({ slug, children }: { slug: string; children:
           remoteVersionRef.current = new Date(updatedAt).getTime();
           saveToLocalStorage(slug, data);
           setSyncStatus('synced');
+          setSavedAt(new Date());
         })
         .catch((err: unknown) => {
           saveToLocalStorage(slug, data);
           setSyncStatus('error');
           setSyncError(getErrorMessage(err, 'Errore di salvataggio'));
         });
-    }, SAVE_DEBOUNCE_MS);
+    };
+    pendingSaveRef.current = run;
+    saveTimerRef.current = setTimeout(run, SAVE_DEBOUNCE_MS);
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, [slug, data, usesSupabase]);
+
+  // alla chiusura (cambio torneo, uscita dal pannello) non perdo l'ultima modifica
+  useEffect(() => () => pendingSaveRef.current?.(), []);
 
   const value = useMemo<StoreValue>(
     () => ({
@@ -181,11 +201,28 @@ export function TournamentProvider({ slug, children }: { slug: string; children:
           setDataState(blank);
         }
       },
+      saveNow: async (next) => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        pendingSaveRef.current = null;
+        setDataState(next);
+        saveToLocalStorage(slug, next);
+        if (!usesSupabase) return;
+        setSyncStatus('syncing');
+        const updatedAt = await saveTournament(slug, next);
+        remoteVersionRef.current = new Date(updatedAt).getTime();
+        setSyncStatus('synced');
+        setSavedAt(new Date());
+      },
+      discardPending: () => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        pendingSaveRef.current = null;
+      },
       syncStatus,
+      savedAt,
       syncError,
       usesSupabase,
     }),
-    [slug, data, syncStatus, syncError, usesSupabase],
+    [slug, data, syncStatus, savedAt, syncError, usesSupabase],
   );
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;

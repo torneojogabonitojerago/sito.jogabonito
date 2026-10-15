@@ -9,13 +9,15 @@ import {
 } from 'react';
 import { getSupabase, getWriteKey, isSupabaseConfigured } from '@/lib/supabase';
 import {
-  blankTournamentData,
   defaultData,
+  normalizeTournament,
   type OpeningNight,
   type SiteState,
   type TournamentData,
 } from '@/data/tournament';
 import { getErrorMessage } from '@/lib/utils';
+import { saveTournament } from '@/data/tournament-api';
+import { SITE_SLUG } from '@/data/site-config';
 
 const LOCAL_DATA_PREFIX = 'torneo-patronale-data-v1:';
 
@@ -31,19 +33,25 @@ export interface TournamentSummary {
 }
 
 interface RegistryValue {
+  /** tornei attivi (non archiviati) */
   tournaments: TournamentSummary[];
+  /** tornei archiviati, dal più recente */
+  archived: TournamentSummary[];
   loading: boolean;
   error: string | null;
   usesSupabase: boolean;
   createTournament: (slug: string, payload: TournamentData) => Promise<void>;
   deleteTournament: (slug: string) => Promise<void>;
+  /** ricarica l'elenco dei tornei */
+  reload: () => void;
+  /** salva i dati di un torneo qualsiasi (archiviazione, ripristino…) */
+  updateTournament: (slug: string, payload: TournamentData) => Promise<void>;
 }
 
 const RegistryCtx = createContext<RegistryValue | null>(null);
 
 function toSummary(slug: string, payload: Partial<TournamentData>, updatedAt: string): TournamentSummary {
-  const fallback = blankTournamentData(slug, payload.sport ?? '', payload.info?.name ?? 'Torneo');
-  const data: TournamentData = { ...fallback, ...payload, slug };
+  const data = normalizeTournament(payload, slug);
   return {
     slug,
     sport: data.sport,
@@ -60,7 +68,7 @@ function loadLocalSummaries(): TournamentSummary[] {
   const seenSlugs = new Set<string>();
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (!key?.startsWith(LOCAL_DATA_PREFIX)) continue;
+    if (!key?.startsWith(LOCAL_DATA_PREFIX) || key === LOCAL_DATA_PREFIX + SITE_SLUG) continue;
     try {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
@@ -87,14 +95,14 @@ async function fetchSummaries(): Promise<TournamentSummary[]> {
     .order('updated_at', { ascending: false });
   if (error) throw error;
 
-  return (data ?? []).map((row) =>
-    toSummary(row.slug as string, row.payload as Partial<TournamentData>, row.updated_at as string),
-  );
+  return (data ?? [])
+    .filter((row) => row.slug !== SITE_SLUG)
+    .map((row) => toSummary(row.slug as string, row.payload as Partial<TournamentData>, row.updated_at as string));
 }
 
 export function TournamentsRegistryProvider({ children }: { children: ReactNode }) {
   const usesSupabase = isSupabaseConfigured();
-  const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
+  const [all, setAll] = useState<TournamentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,7 +110,7 @@ export function TournamentsRegistryProvider({ children }: { children: ReactNode 
     const task = usesSupabase ? fetchSummaries() : Promise.resolve(loadLocalSummaries());
     task
       .then((list) => {
-        setTournaments(list);
+        setAll(list);
         setError(null);
       })
       .catch((err: unknown) => setError(getErrorMessage(err, 'Errore di caricamento')))
@@ -169,18 +177,45 @@ export function TournamentsRegistryProvider({ children }: { children: ReactNode 
     [usesSupabase, load],
   );
 
-  const value = useMemo<RegistryValue>(
-    () => ({ tournaments, loading, error, usesSupabase, createTournament, deleteTournament }),
-    [tournaments, loading, error, usesSupabase, createTournament, deleteTournament],
+  const updateTournament = useCallback(
+    async (slug: string, payload: TournamentData) => {
+      if (!usesSupabase) {
+        localStorage.setItem(`${LOCAL_DATA_PREFIX}${slug}`, JSON.stringify(payload));
+      } else {
+        await saveTournament(slug, payload);
+      }
+      load();
+    },
+    [usesSupabase, load],
   );
+
+  const value = useMemo<RegistryValue>(() => {
+    const byName = (a: TournamentSummary, b: TournamentSummary) => a.name.localeCompare(b.name);
+    return {
+      tournaments: all.filter((t) => !t.data.archived).sort(byName),
+      archived: all
+        .filter((t) => t.data.archived)
+        .sort((a, b) => (b.data.archivedAt ?? '').localeCompare(a.data.archivedAt ?? '')),
+      loading,
+      error,
+      usesSupabase,
+      createTournament,
+      deleteTournament,
+      updateTournament,
+      reload: load,
+    };
+  }, [all, loading, error, usesSupabase, createTournament, deleteTournament, updateTournament, load]);
 
   return <RegistryCtx.Provider value={value}>{children}</RegistryCtx.Provider>;
 }
 
-/** Torneo di riferimento quando l'URL non ne indica uno: prima quello in corso, poi quello in arrivo. */
+/** Torneo di riferimento quando l'URL non ne indica uno: prima quello con una partita in campo,
+    poi quello con le iscrizioni aperte, poi il primo. */
 export function pickFeatured(list: TournamentSummary[]): TournamentSummary | undefined {
   return (
-    list.find((t) => t.siteState === 'live-season') ?? list.find((t) => t.siteState === 'pre-season') ?? list[0]
+    list.find((t) => t.data.matches.some((m) => m.status === 'live')) ??
+    list.find((t) => t.data.forms.some((f) => f.open)) ??
+    list[0]
   );
 }
 
