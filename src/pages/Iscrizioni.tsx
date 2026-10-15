@@ -292,7 +292,7 @@ export default function Iscrizioni() {
             </div>
           ) : sentTitle ? (
             <div className="flex flex-col items-center gap-3.5 px-8 py-14 text-center">
-              <img src="/logo.png" alt="" className="h-[110px] w-[110px] object-contain mix-blend-screen" />
+              <img src="/logo.png" alt="" className="h-[110px] w-[110px] object-contain" />
               <span className="font-display text-glow text-[clamp(36px,4vw,52px)] uppercase leading-none text-white">
                 Iscrizione inviata!
               </span>

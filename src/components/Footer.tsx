@@ -11,7 +11,7 @@ export default function Footer() {
     <footer className="border-t border-white/[0.06] bg-black">
       <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-6 px-4 py-10 sm:px-6">
         <div className="flex items-center gap-3.5">
-          <img src="/logo.png" alt="" className="h-14 w-14 object-contain mix-blend-screen" />
+          <img src="/logo.png" alt="" className="h-14 w-14 object-contain" />
           <span className="font-display text-[13px] uppercase tracking-[0.3em] text-zinc-500">
             Tornei Joga Bonito · Festa Patronale
           </span>

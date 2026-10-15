@@ -46,7 +46,7 @@ export default function Navbar() {
       <div className="border-b border-white/[0.06] bg-black/[0.82] backdrop-blur-[12px]">
         <div className="mx-auto flex min-h-[68px] max-w-[1280px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2 sm:px-6">
           <Link to="/" className="flex shrink-0 items-center gap-3 hover:text-white">
-            <img src="/logo.png" alt="Logo Joga Bonito" className="h-11 w-11 object-contain mix-blend-screen" />
+            <img src="/logo.png" alt="Logo Joga Bonito" className="h-11 w-11 object-contain" />
             <span className="font-display text-[21px] tracking-[0.04em] text-white">
               TORNEO <span className="hidden text-primary min-[400px]:inline">JOGABONITO</span>
             </span>

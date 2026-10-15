@@ -323,7 +323,7 @@ export default function Home() {
             <img
               src="/logo.png"
               alt="Joga Bonito"
-              className="h-full w-full animate-jb-float object-contain mix-blend-screen"
+              className="h-full w-full animate-jb-float object-contain"
             />
           </div>
           {mode === 'pre' && <CountdownTimer target={start} />}

@@ -165,7 +165,7 @@ export default function IntroSplash() {
                 animation: 'jb-i-pulse 1.6s ease-in-out 1.2s infinite',
               }}
             />
-            <img src="/logo.png" alt="Joga Bonito" className="relative h-full w-full object-contain mix-blend-screen" />
+            <img src="/logo.png" alt="Joga Bonito" className="relative h-full w-full object-contain" />
             <div style={sweepStyle} />
           </div>
         </div>
