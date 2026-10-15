@@ -8,13 +8,12 @@ import { Btn, Card, CardTitle, Field, TextArea, TextInput } from '../ui';
 interface Props {
   /** si può archiviare solo se resta almeno un altro torneo attivo */
   canArchive: boolean;
-  canDelete: boolean;
   onArchive: () => void;
   onNewEdition: () => void;
   onDelete: () => void;
 }
 
-export default function TorneoTab({ canArchive, canDelete, onArchive, onNewEdition, onDelete }: Props) {
+export default function TorneoTab({ canArchive, onArchive, onNewEdition, onDelete }: Props) {
   const { data, update } = useTournament();
   const [confirmArchive, setConfirmArchive] = useState(false);
   const info = data.info;
@@ -176,15 +175,13 @@ export default function TorneoTab({ canArchive, canDelete, onArchive, onNewEditi
         )}
       </Card>
 
-      {canDelete && (
-        <Card className="border-red-500/25 bg-red-500/[0.03]">
-          <CardTitle>Elimina torneo</CardTitle>
-          <p className="mb-4 text-sm text-zinc-400">Cancella definitivamente squadre, partite, moduli e albo di questo torneo.</p>
-          <Btn variant="danger" onClick={onDelete}>
-            <Trash2 className="h-4 w-4" /> Elimina torneo
-          </Btn>
-        </Card>
-      )}
+      <Card className="border-red-500/25 bg-red-500/[0.03]">
+        <CardTitle>Elimina torneo</CardTitle>
+        <p className="mb-4 text-sm text-zinc-400">Cancella definitivamente squadre, partite, moduli e albo di questo torneo.</p>
+        <Btn variant="danger" onClick={onDelete}>
+          <Trash2 className="h-4 w-4" /> Elimina torneo
+        </Btn>
+      </Card>
     </div>
   );
 }

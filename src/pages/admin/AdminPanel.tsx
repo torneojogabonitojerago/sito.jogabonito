@@ -282,11 +282,9 @@ function PanelBody({
         <Btn small variant="quiet" className="border-dashed border-white/20" onClick={() => setNewOpen(true)}>
           <Plus className="h-3.5 w-3.5" /> Nuovo torneo
         </Btn>
-        {others.length > 0 && (
-          <Btn small variant="danger" className="ml-auto" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="h-3.5 w-3.5" /> Elimina torneo
-          </Btn>
-        )}
+        <Btn small variant="danger" className="ml-auto" onClick={() => setDeleteOpen(true)}>
+          <Trash2 className="h-3.5 w-3.5" /> Elimina torneo
+        </Btn>
       </div>
 
       {opError && <p className="text-sm font-semibold text-red-400">{opError}</p>}
@@ -336,7 +334,6 @@ function PanelBody({
         {tab === 'torneo' && (
           <TorneoTab
             canArchive={others.length > 0}
-            canDelete={others.length > 0}
             onArchive={archive}
             onNewEdition={() => newEdition(data)}
             onDelete={() => setDeleteOpen(true)}
