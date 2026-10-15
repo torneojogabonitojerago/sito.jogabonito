@@ -1,140 +1,91 @@
-import { Trophy, Medal, Award } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import AnimatedNumber from '@/components/AnimatedNumber';
 import { useTournament } from '@/data/store';
+import { useTournamentsRegistry } from '@/data/tournaments-registry';
+import { isDefined, tournamentYear, type HallOfFameEdition } from '@/data/tournament';
+
+interface EditionView extends HallOfFameEdition {
+  tournament: string;
+}
 
 export default function AlboDoro() {
   const { data } = useTournament();
-  const editions = data.hallOfFame;
-  const showStats = data.showHistoricalStats !== false; // default to true
+  const { tournaments } = useTournamentsRegistry();
+
+  /* edizioni di tutti i tornei (il torneo aperto con i dati più freschi), dalla più recente */
+  const sources = [data, ...tournaments.filter((t) => t.slug !== data.slug).map((t) => t.data)];
+  const seen = new Set<string>();
+  const editions: EditionView[] = [];
+  for (const d of sources) {
+    for (const e of d.hallOfFame) {
+      const key = `${d.info.name}|${e.year}`;
+      if (!isDefined(e.winner) || seen.has(key)) continue;
+      seen.add(key);
+      editions.push({ ...e, tournament: d.info.name });
+    }
+  }
+  editions.sort((a, b) => b.year.localeCompare(a.year));
+
+  const year = tournamentYear(data);
+  const showNextEdition = !data.hallOfFame.some((e) => e.year === year && isDefined(e.winner));
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24">
-      <PageHeader title="Albo d'Oro" brush="storia delle vittorie" />
+    <div>
+      <PageHeader
+        title="Albo d'oro"
+        brush="chi ha scritto la storia"
+        aside={`${editions.length} ${editions.length === 1 ? 'edizione' : 'edizioni'}`}
+      />
 
-      <div className="space-y-8">
-        {editions.map((edition, index) => (
-          <div
-            key={edition.year}
-            className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-[#101010] to-[#0a0a0a] p-6 sm:p-8"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-cyan-500/5" />
-            
-            <div className="relative">
-              <div className="mb-6 flex items-center justify-between">
-                <h3 className="font-display text-4xl uppercase tracking-wide text-white drop-shadow-[0_0_15px_rgba(255,0,255,0.4)]">
-                  {edition.year}
-                </h3>
-                <div className="flex gap-2">
-                  {index === 0 && (
-                    <span className="rounded-full bg-primary/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary">
-                      Edizione corrente
-                    </span>
-                  )}
-                </div>
+      <section className="mx-auto grid max-w-[1280px] grid-cols-[repeat(auto-fill,minmax(min(100%,340px),1fr))] gap-5 px-4 pb-24 sm:px-6">
+        {showNextEdition && (
+          <div className="flex min-h-[260px] flex-col justify-center gap-2.5 rounded-[18px] border border-dashed border-primary/40 bg-primary/[0.04] p-8">
+            <span className="text-xs font-bold uppercase tracking-[0.24em] text-primary">Edizione {year}</span>
+            <span className="font-display text-[40px] uppercase leading-none text-white">Da definire</span>
+            <span className="font-brush text-[28px] text-cyan-400">potresti essere tu</span>
+          </div>
+        )}
+
+        {editions.map((e) => {
+          const rows = [
+            ['Finalista', e.runnerUp],
+            ['Terzo posto', e.thirdPlace],
+            ['MVP', e.mvp],
+            ['Capocannoniere', e.topScorer],
+          ].filter((x): x is [string, string] => isDefined(x[1]));
+
+          return (
+            <div
+              key={`${e.tournament}-${e.year}`}
+              className="flex flex-col gap-[18px] rounded-[18px] border border-amber-500/[0.35] bg-[linear-gradient(160deg,#100c04,#0a0a0a_65%)] p-8"
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-display text-[44px] leading-none text-amber-400 [text-shadow:0_0_24px_rgba(245,158,11,0.35)]">
+                  {e.year}
+                </span>
+                <span className="text-right text-[11px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+                  {e.tournament}
+                </span>
               </div>
-
-              <div className="grid gap-6 sm:grid-cols-3">
-                {/* Vincitore */}
-                <div className="relative rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-5 text-center">
-                  <div className="relative mx-auto mb-3 inline-block">
-                    <Trophy className="h-12 w-12 text-primary drop-shadow-[0_0_15px_rgba(255,0,255,0.6)]" />
-                    <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl" />
-                  </div>
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-primary">Campione</p>
-                  <p className="font-display text-xl uppercase tracking-wide text-white">{edition.winner}</p>
-                </div>
-
-                {/* Secondo */}
-                <div className="relative rounded-lg border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5 text-center">
-                  <div className="relative mx-auto mb-3 inline-block">
-                    <Medal className="h-12 w-12 text-zinc-300 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
-                    <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-                  </div>
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-zinc-400">Secondo</p>
-                  <p className="font-display text-xl uppercase tracking-wide text-white">{edition.runnerUp}</p>
-                </div>
-
-                {/* Terzo */}
-                <div className="relative rounded-lg border border-amber-700/30 bg-gradient-to-br from-amber-700/10 to-transparent p-5 text-center">
-                  <div className="relative mx-auto mb-3 inline-block">
-                    <Award className="h-12 w-12 text-amber-600 drop-shadow-[0_0_10px_rgba(217,119,6,0.5)]" />
-                    <div className="absolute inset-0 rounded-full bg-amber-600/20 blur-xl" />
-                  </div>
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-amber-600">Terzo</p>
-                  <p className="font-display text-xl uppercase tracking-wide text-white">{edition.thirdPlace}</p>
-                </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-400">Campione</span>
+                <span className="font-display text-[clamp(32px,3.6vw,44px)] uppercase leading-none text-white">
+                  {e.winner}
+                </span>
               </div>
-
-              {/* MVP e Top Scorer */}
-              {(edition.mvp || edition.topScorer) && (
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  {edition.mvp && (
-                    <div className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-4">
-                      <div className="relative">
-                        <Trophy className="h-6 w-6 text-primary" />
-                        <div className="absolute inset-0 rounded-full bg-primary/20 blur-lg" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">MVP</p>
-                        <p className="font-display text-sm uppercase tracking-wide text-white">{edition.mvp}</p>
-                      </div>
+              {rows.length > 0 && (
+                <div className="grid grid-cols-2 gap-x-5 gap-y-3.5 border-t border-white/[0.08] pt-4">
+                  {rows.map(([label, value]) => (
+                    <div key={label} className="flex min-w-0 flex-col gap-0.5">
+                      <span className="label-xs">{label}</span>
+                      <span className="font-display text-lg uppercase text-zinc-200">{value}</span>
                     </div>
-                  )}
-                  {edition.topScorer && (
-                    <div className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-4">
-                      <div className="relative">
-                        <Award className="h-6 w-6 text-cyan-400" />
-                        <div className="absolute inset-0 rounded-full bg-cyan-400/20 blur-lg" />
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Top Scorer</p>
-                        <p className="font-display text-sm uppercase tracking-wide text-white">{edition.topScorer}</p>
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Statistiche generali */}
-      {showStats && (
-        <div className="mt-12 rounded-xl border border-white/10 bg-gradient-to-br from-[#101010] to-[#0a0a0a] p-6 sm:p-8">
-          <h3 className="mb-6 font-display text-2xl uppercase tracking-wide text-white">Statistiche storiche</h3>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="text-center">
-              <AnimatedNumber 
-                value={editions.length} 
-                className="font-display text-4xl font-bold text-primary drop-shadow-[0_0_10px_rgba(255,0,255,0.5)]" 
-              />
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Edizioni</p>
-            </div>
-            <div className="text-center">
-              <AnimatedNumber 
-                value={editions.reduce((sum, e) => sum + (e.matchesPlayed || 0), 0)}
-                className="font-display text-4xl font-bold text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.5)]"
-              />
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Partite giocate</p>
-            </div>
-            <div className="text-center">
-              <AnimatedNumber 
-                value={editions.reduce((sum, e) => sum + (e.totalGoals || 0), 0)}
-                className="font-display text-4xl font-bold text-white"
-              />
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Goal totali</p>
-            </div>
-            <div className="text-center">
-              <AnimatedNumber 
-                value={new Set(editions.map(e => e.winner)).size}
-                className="font-display text-4xl font-bold text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-              />
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500">Squadre vincitrici</p>
-            </div>
-          </div>
-        </div>
-      )}
+          );
+        })}
+      </section>
     </div>
   );
 }

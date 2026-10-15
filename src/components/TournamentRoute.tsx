@@ -10,20 +10,21 @@ export default function TournamentRoute() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center pt-16 text-sm text-zinc-500">
-        Caricamento…
-      </div>
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-500">Caricamento…</div>
     );
   }
 
   const exists = tournaments.some((t) => t.slug === slug);
   if (!exists) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 pt-16 text-center">
-        <h1 className="font-display text-2xl uppercase tracking-wide text-white">Torneo non trovato</h1>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
+        <h1 className="font-display text-glow text-[clamp(40px,6vw,72px)] uppercase leading-none text-white">
+          Torneo non trovato
+        </h1>
+        <p className="font-brush text-[28px] text-cyan-400">fuori dal campo</p>
         <p className="text-sm text-zinc-500">Il torneo "{slug}" non esiste o è stato rimosso.</p>
-        <Link to="/" className="text-sm font-bold uppercase tracking-widest text-primary hover:underline">
-          ← Torna alla lista tornei
+        <Link to="/" className="btn-ghost mt-2 px-[22px] py-[13px] text-[15px]">
+          ← Torna alla home
         </Link>
       </div>
     );

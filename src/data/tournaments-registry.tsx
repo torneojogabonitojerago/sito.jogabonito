@@ -8,7 +8,13 @@ import {
   type ReactNode,
 } from 'react';
 import { getSupabase, getWriteKey, isSupabaseConfigured } from '@/lib/supabase';
-import { defaultData, type OpeningNight, type SiteState, type TournamentData } from '@/data/tournament';
+import {
+  blankTournamentData,
+  defaultData,
+  type OpeningNight,
+  type SiteState,
+  type TournamentData,
+} from '@/data/tournament';
 import { getErrorMessage } from '@/lib/utils';
 
 const LOCAL_DATA_PREFIX = 'torneo-patronale-data-v1:';
@@ -20,6 +26,8 @@ export interface TournamentSummary {
   siteState: SiteState;
   openingNight: OpeningNight;
   updatedAt: string;
+  /** Dati completi del torneo (servono alla home per capolista, partite, campioni) */
+  data: TournamentData;
 }
 
 interface RegistryValue {
@@ -33,6 +41,20 @@ interface RegistryValue {
 
 const RegistryCtx = createContext<RegistryValue | null>(null);
 
+function toSummary(slug: string, payload: Partial<TournamentData>, updatedAt: string): TournamentSummary {
+  const fallback = blankTournamentData(slug, payload.sport ?? '', payload.info?.name ?? 'Torneo');
+  const data: TournamentData = { ...fallback, ...payload, slug };
+  return {
+    slug,
+    sport: data.sport,
+    name: data.info.name,
+    siteState: data.siteState,
+    openingNight: data.openingNight,
+    updatedAt,
+    data,
+  };
+}
+
 function loadLocalSummaries(): TournamentSummary[] {
   const summaries: TournamentSummary[] = [];
   const seenSlugs = new Set<string>();
@@ -44,14 +66,7 @@ function loadLocalSummaries(): TournamentSummary[] {
       if (!raw) continue;
       const data = JSON.parse(raw) as TournamentData;
       const slug = key.slice(LOCAL_DATA_PREFIX.length);
-      summaries.push({
-        slug,
-        sport: data.sport,
-        name: data.info.name,
-        siteState: data.siteState,
-        openingNight: data.openingNight,
-        updatedAt: new Date().toISOString(),
-      });
+      summaries.push(toSummary(slug, data, new Date().toISOString()));
       seenSlugs.add(slug);
     } catch {
       /* riga corrotta, ignorata */
@@ -59,14 +74,7 @@ function loadLocalSummaries(): TournamentSummary[] {
   }
   // Il torneo seed non è ancora stato salvato al primo avvio: lo mostro comunque.
   if (!seenSlugs.has(defaultData.slug)) {
-    summaries.unshift({
-      slug: defaultData.slug,
-      sport: defaultData.sport,
-      name: defaultData.info.name,
-      siteState: defaultData.siteState,
-      openingNight: defaultData.openingNight,
-      updatedAt: new Date().toISOString(),
-    });
+    summaries.unshift(toSummary(defaultData.slug, defaultData, new Date().toISOString()));
   }
   return summaries;
 }
@@ -79,17 +87,9 @@ async function fetchSummaries(): Promise<TournamentSummary[]> {
     .order('updated_at', { ascending: false });
   if (error) throw error;
 
-  return (data ?? []).map((row) => {
-    const payload = row.payload as TournamentData;
-    return {
-      slug: row.slug as string,
-      sport: payload.sport,
-      name: payload.info.name,
-      siteState: payload.siteState,
-      openingNight: payload.openingNight,
-      updatedAt: row.updated_at as string,
-    };
-  });
+  return (data ?? []).map((row) =>
+    toSummary(row.slug as string, row.payload as Partial<TournamentData>, row.updated_at as string),
+  );
 }
 
 export function TournamentsRegistryProvider({ children }: { children: ReactNode }) {
@@ -175,6 +175,13 @@ export function TournamentsRegistryProvider({ children }: { children: ReactNode 
   );
 
   return <RegistryCtx.Provider value={value}>{children}</RegistryCtx.Provider>;
+}
+
+/** Torneo di riferimento quando l'URL non ne indica uno: prima quello in corso, poi quello in arrivo. */
+export function pickFeatured(list: TournamentSummary[]): TournamentSummary | undefined {
+  return (
+    list.find((t) => t.siteState === 'live-season') ?? list.find((t) => t.siteState === 'pre-season') ?? list[0]
+  );
 }
 
 export function useTournamentsRegistry(): RegistryValue {

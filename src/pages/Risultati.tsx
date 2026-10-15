@@ -1,109 +1,191 @@
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { phaseLabel, type Match, type MatchPhase, type Team } from '@/data/tournament';
+import {
+  byDateTime,
+  formatDay,
+  groupStageDates,
+  phaseLabel,
+  setsWon,
+  teamName,
+  type Match,
+  type MatchStatus,
+  type Team,
+} from '@/data/tournament';
 import { useTournament } from '@/data/store';
-import MatchCard from '@/components/MatchCard';
 import PageHeader from '@/components/PageHeader';
 
-type Filter = 'all' | 'finali';
+type StatusFilter = 'all' | MatchStatus;
 
-const filters: { id: Filter; label: string }[] = [
-  { id: 'all', label: 'Tutti i risultati' },
-  { id: 'finali', label: 'Fasi finali' },
+const statusOpts: { id: StatusFilter; label: string }[] = [
+  { id: 'all', label: 'Tutte' },
+  { id: 'live', label: 'Live' },
+  { id: 'finished', label: 'Giocate' },
+  { id: 'scheduled', label: 'Da giocare' },
 ];
 
-function MatchGroup({ title, list, teams }: { title: string; list: Match[]; teams: Team[] }) {
-  if (list.length === 0) return null;
+const statusOrder: Record<MatchStatus, number> = { live: 0, finished: 1, scheduled: 2 };
+
+/** Live, poi giocate dalla più recente, poi da giocare dalla più vicina. */
+function compareMatches(a: Match, b: Match): number {
+  const byStatus = statusOrder[a.status] - statusOrder[b.status];
+  if (byStatus) return byStatus;
+  return a.status === 'scheduled' ? byDateTime(a, b) : byDateTime(b, a);
+}
+
+function ResultCard({ m, teams }: { m: Match; teams: Team[] }) {
+  const sw = setsWon(m);
+  const done = m.status === 'finished';
+  const live = m.status === 'live';
+  const chips = m.sets.filter((s) => s.home !== s.away);
+  const when = `${m.phase !== 'gironi' ? `${phaseLabel[m.phase]} · ` : ''}${formatDay(m.date)} · ${m.time}`;
+
   return (
-    <section className="mb-12">
-      <div className="mb-5 border-b-2 border-primary/60 pb-2">
-        <h2 className="font-display text-2xl uppercase tracking-wide text-white">{title}</h2>
+    <div
+      className={cn(
+        'overflow-hidden rounded-[14px] border bg-[#101010]',
+        live ? 'border-red-500/50' : 'border-white/[0.06]',
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 bg-white/[0.03] px-[18px] py-2.5 text-[11px] font-bold uppercase tracking-[0.2em]">
+        <span
+          className={cn('whitespace-nowrap', live ? 'text-red-400' : done ? 'text-cyan-400' : 'text-zinc-400')}
+        >
+          {live ? '● Live' : done ? 'Finale' : 'Da giocare'}
+        </span>
+        <span className="text-right text-zinc-500">{when}</span>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {list.map((m) => (
-          <MatchCard key={m.id} match={m} teams={teams} />
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 p-[18px]">
+        <span
+          className={cn(
+            'font-display text-[19px] uppercase leading-[1.1] [text-wrap:balance]',
+            done && sw.away > sw.home ? 'text-zinc-500' : 'text-white',
+          )}
+        >
+          {teamName(teams, m, 'home')}
+        </span>
+        <span
+          className={cn(
+            'whitespace-nowrap font-display text-[30px] leading-none',
+            live ? 'text-red-400' : done ? 'text-white' : 'text-zinc-600',
+          )}
+        >
+          {done || live ? `${sw.home} – ${sw.away}` : 'VS'}
+        </span>
+        <span
+          className={cn(
+            'text-right font-display text-[19px] uppercase leading-[1.1] [text-wrap:balance]',
+            done && sw.home > sw.away ? 'text-zinc-500' : 'text-white',
+          )}
+        >
+          {teamName(teams, m, 'away')}
+        </span>
+      </div>
+      <div className="flex min-h-[26px] justify-center gap-2 px-[18px] pb-4">
+        {chips.map((s, i) => (
+          <span key={i} className="rounded-md bg-white/5 px-2.5 py-1 text-[13px] font-bold tracking-[0.04em] text-zinc-300">
+            {s.home}–{s.away}
+          </span>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 
 export default function Risultati() {
-  const [filter, setFilter] = useState<Filter>('all');
   const { data } = useTournament();
+  const { teams, matches } = data;
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [team, setTeam] = useState('all');
+  const [day, setDay] = useState('all');
 
-  const sorted = useMemo(
-    () => [...data.matches].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)),
-    [data.matches],
+  const dates = groupStageDates(matches);
+  const hasFinals = matches.some((m) => m.phase !== 'gironi');
+  const dayFilters = [
+    { id: 'all', label: 'Tutte' },
+    ...dates.map((d, i) => ({ id: d, label: `Giornata ${i + 1}` })),
+    ...(hasFinals ? [{ id: 'finali', label: 'Fasi finali' }] : []),
+  ];
+
+  const list = useMemo(
+    () =>
+      matches
+        .filter((m) => status === 'all' || m.status === status)
+        .filter((m) => team === 'all' || m.home === team || m.away === team)
+        .filter((m) =>
+          day === 'all' ? true : day === 'finali' ? m.phase !== 'gironi' : m.phase === 'gironi' && m.date === day,
+        )
+        .sort(compareMatches),
+    [matches, status, team, day],
   );
 
-  const byPhase = (p: MatchPhase) => sorted.filter((m) => m.phase === p);
-  const byGironi = () => sorted.filter((m) => m.phase === 'gironi');
-  
-  // Group matches by date
-  const groupByDate = (matches: Match[]) => {
-    const groups: Record<string, Match[]> = {};
-    matches.forEach(m => {
-      if (!groups[m.date]) groups[m.date] = [];
-      groups[m.date].push(m);
-    });
-    return groups;
-  };
+  const played = matches.filter((m) => m.status === 'finished').length;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24">
-      <PageHeader title="Punteggi" brush="tutti i risultati" />
+    <div>
+      <PageHeader title="Risultati" brush="punto su punto" aside={`${played} partite giocate`} />
 
-      {/* filtri */}
-      <div className="mb-10 flex flex-wrap justify-center gap-2">
-        {filters.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              'rounded-sm px-4 py-2 font-display text-sm uppercase tracking-widest transition-colors',
-              filter === f.id
-                ? 'bg-primary text-white shadow-[0_0_20px_rgba(255,77,0,0.4)]'
-                : 'border border-white/10 bg-[#101010] text-zinc-400 hover:border-primary/50 hover:text-white',
-            )}
+      <section className="mx-auto flex max-w-[1080px] flex-col gap-6 px-4 pb-24 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-1 rounded-full border border-white/[0.08] bg-[#0a0a0a] p-1">
+            {statusOpts.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => setStatus(o.id)}
+                className={cn(
+                  'whitespace-nowrap rounded-full px-[13px] py-[7px] text-xs font-bold uppercase tracking-[0.12em] transition-colors',
+                  status === o.id ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white',
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <select
+            value={team}
+            onChange={(e) => setTeam(e.target.value)}
+            aria-label="Filtra per squadra"
+            className="min-w-[220px] rounded-[10px] border border-white/[0.12] bg-[#0a0a0a] px-3 py-2.5 font-display text-sm uppercase tracking-[0.04em] text-white outline-none [color-scheme:dark] focus:border-primary"
           >
-            {f.label}
-          </button>
-        ))}
-      </div>
+            <option value="all">Tutte le squadre</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      {filter === 'all' && (
-        <>
-          {/* Partite di girone organizzate per data */}
-          {Object.entries(groupByDate(byGironi())).map(([date, matches]) => (
-            <section key={date} className="mb-12">
-              <div className="mb-5 border-b-2 border-primary/60 pb-2">
-                <h2 className="font-display text-2xl uppercase tracking-wide text-white">
-                  {new Date(date).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </h2>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {matches.map((m) => (
-                  <MatchCard key={m.id} match={m} teams={data.teams} />
-                ))}
-              </div>
-            </section>
+        <div className="flex flex-wrap gap-2">
+          {dayFilters.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setDay(f.id)}
+              className={cn(
+                'whitespace-nowrap rounded-full border px-[18px] py-2.5 font-display text-sm uppercase tracking-[0.12em] transition-colors',
+                day === f.id
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-white/15 text-zinc-400 hover:border-primary/50 hover:text-white',
+              )}
+            >
+              {f.label}
+            </button>
           ))}
-          
-          {/* Fasi finali */}
-          <MatchGroup title={phaseLabel.semifinale} list={byPhase('semifinale')} teams={data.teams} />
-          <MatchGroup title={phaseLabel.finalina} list={byPhase('finalina')} teams={data.teams} />
-          <MatchGroup title={phaseLabel.finale} list={byPhase('finale')} teams={data.teams} />
-        </>
-      )}
-      
-      {filter === 'finali' && (
-        <>
-          <MatchGroup title={phaseLabel.semifinale} list={byPhase('semifinale')} teams={data.teams} />
-          <MatchGroup title={phaseLabel.finalina} list={byPhase('finalina')} teams={data.teams} />
-          <MatchGroup title={phaseLabel.finale} list={byPhase('finale')} teams={data.teams} />
-        </>
-      )}
+        </div>
+
+        {list.length === 0 ? (
+          <div className="rounded-[14px] border border-dashed border-white/[0.12] p-10 text-center text-base text-zinc-400">
+            Nessuna partita con questi filtri.
+          </div>
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),1fr))] gap-3.5">
+            {list.map((m) => (
+              <ResultCard key={m.id} m={m} teams={teams} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

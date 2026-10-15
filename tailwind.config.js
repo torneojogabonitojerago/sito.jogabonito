@@ -82,6 +82,8 @@ module.exports = {
         "accordion-up": "accordion-up 0.2s ease-out",
         "caret-blink": "caret-blink 1.25s ease-out infinite",
         "fade-in": "fade-in 0.3s ease-out",
+        "jb-ping": "jb-ping 1.4s cubic-bezier(0,0,0.2,1) infinite",
+        "jb-float": "jb-float 6s ease-in-out infinite",
       },
     },
   },

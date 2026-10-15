@@ -28,7 +28,7 @@ export default function AdminGate({ onUnlock }: { onUnlock: () => void }) {
   };
 
   return (
-    <div className="flex min-h-[70vh] items-center justify-center px-4 pt-16">
+    <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
       <form
         onSubmit={submit}
         className="w-full max-w-sm rounded-md border border-white/10 bg-[#101010] p-8 text-center"

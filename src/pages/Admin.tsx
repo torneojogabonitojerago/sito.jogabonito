@@ -1182,7 +1182,7 @@ export default function Admin() {
   if (!unlocked) return <AdminGate onUnlock={() => setUnlocked(true)} />;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24 pt-24">
+    <div className="mx-auto max-w-6xl px-4 pb-24 pt-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display title-glow text-4xl uppercase tracking-wide text-white sm:text-5xl">

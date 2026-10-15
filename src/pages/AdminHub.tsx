@@ -155,7 +155,7 @@ export default function AdminHub() {
   if (!unlocked) return <AdminGate onUnlock={() => setUnlocked(true)} />;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 pb-24 pt-24">
+    <div className="mx-auto max-w-4xl px-4 pb-24 pt-12">
       <h1 className="font-display title-glow text-4xl uppercase tracking-wide text-white sm:text-5xl">Tornei</h1>
       <p className="font-brush mt-1 text-2xl text-primary">gestione generale</p>
 

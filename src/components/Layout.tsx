@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import AnimatedBackground from '@/components/AnimatedBackground';
+import IntroSplash from '@/components/IntroSplash';
 
 export default function Layout() {
   const { pathname } = useLocation();
@@ -12,15 +12,13 @@ export default function Layout() {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-background bg-net relative">
-      <AnimatedBackground />
-      <div className="relative z-10">
-        <Navbar />
-        <main key={pathname} className="animate-fade-in">
-          <Outlet />
-        </main>
-        <Footer />
-      </div>
+    <div className="bg-site flex min-h-screen flex-col overflow-x-clip">
+      <IntroSplash />
+      <Navbar />
+      <main key={pathname} className="flex-1 animate-fade-in">
+        <Outlet />
+      </main>
+      <Footer />
     </div>
   );
 }

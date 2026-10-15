@@ -332,8 +332,9 @@ export function computeStandings(teams: Team[], matches: Match[], group?: 'A'): 
       }),
     );
 
+  // in classifica contano solo le partite della fase a gironi
   for (const m of matches) {
-    if (m.status !== 'finished' || !m.home || !m.away) continue;
+    if (m.phase !== 'gironi' || m.status !== 'finished' || !m.home || !m.away) continue;
     const rh = rows.get(m.home);
     const ra = rows.get(m.away);
     if (!rh || !ra) continue;
@@ -368,7 +369,7 @@ export function computeStandings(teams: Team[], matches: Match[], group?: 'A'): 
         b.points - a.points ||
         b.setDiff - a.setDiff ||
         b.pointsFor - b.pointsAgainst - (a.pointsFor - a.pointsAgainst) ||
-        b.pointsFor - a.pointsFor,
+        a.team.name.localeCompare(b.team.name),
     );
 }
 
@@ -382,4 +383,63 @@ export const phaseLabel: Record<MatchPhase, string> = {
   semifinale: 'Semifinali',
   finalina: 'Finale 3°/4° posto',
   finale: 'FINALE',
+};
+
+const WEEKDAYS = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+const MONTHS = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+
+/** "Sab 25 Lug" */
+export const formatDay = (iso: string): string => {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+};
+
+/** "25 Lug" */
+export const formatDayShort = (iso: string): string => formatDay(iso).slice(4);
+
+export const byDateTime = (a: Match, b: Match): number => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`);
+
+/** Date (ordinate) in cui si gioca la fase a gironi: "Giornata 1", "Giornata 2"… */
+export const groupStageDates = (matches: Match[]): string[] =>
+  [...new Set(matches.filter((m) => m.phase === 'gironi' && m.date).map((m) => m.date))].sort();
+
+/** Partita in campo ora, altrimenti la prossima da giocare. */
+export function nextMatch(matches: Match[]): Match | undefined {
+  return (
+    matches.find((m) => m.status === 'live') ?? matches.filter((m) => m.status === 'scheduled').sort(byDateTime)[0]
+  );
+}
+
+export const registrationsOpen = (d: TournamentData): boolean =>
+  d.siteState === 'pre-season' && d.preSeason.registrationsOpen;
+
+/** Vero se il nome è compilato (non vuoto e non "Da definire"). */
+export const isDefined = (name?: string): name is string =>
+  Boolean(name && name.trim() && name.trim().toLowerCase() !== 'da definire');
+
+/** Anno del torneo: dalla prima partita, altrimenti dal testo delle date o del nome. */
+export function tournamentYear(d: TournamentData): string {
+  const first = d.matches.map((m) => m.date).filter(Boolean).sort()[0];
+  if (first) return first.slice(0, 4);
+  const found = `${d.info.dates} ${d.info.brushSubtitle} ${d.info.name}`.match(/\d{4}/);
+  return found ? found[0] : String(new Date().getFullYear());
+}
+
+/** Campione: dall'albo dell'anno, altrimenti la prima in classifica (se si è giocato). */
+export function championOf(d: TournamentData): string {
+  const year = tournamentYear(d);
+  const edition = d.hallOfFame.find((e) => e.year === year && isDefined(e.winner));
+  if (edition) return edition.winner;
+  const played = d.matches.some((m) => m.phase === 'gironi' && m.status === 'finished');
+  const leader = computeStandings(d.teams, d.matches)[0];
+  return played && leader ? leader.team.name : 'Da definire';
+}
+
+/** Iniziali per l'avatar della squadra: "Alpha FC" → "AF", "Panperfocaccia" → "PA". */
+export const initials = (name: string): string => {
+  const words = name.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
 };
