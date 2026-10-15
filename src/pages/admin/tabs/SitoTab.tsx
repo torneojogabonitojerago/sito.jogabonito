@@ -121,7 +121,8 @@ function BackupCard() {
   );
 }
 
-export default function SitoTab() {
+/** `backup` = false quando non c'è nessun torneo aperto (il backup riguarda un torneo). */
+export default function SitoTab({ backup = true }: { backup?: boolean }) {
   const { config, update, saving, saveError } = useSiteConfig();
   const current = useSiteMode();
   const setHome = (p: Partial<SiteHome>) => update((c) => ({ ...c, home: { ...c.home, ...p } }));
@@ -198,7 +199,7 @@ export default function SitoTab() {
         </div>
       </Card>
 
-      <BackupCard />
+      {backup && <BackupCard />}
     </div>
   );
 }

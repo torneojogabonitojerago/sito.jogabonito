@@ -87,6 +87,10 @@ function Panel({ onLogout }: { onLogout: () => void }) {
             <Plus className="h-4 w-4" /> Nuovo torneo
           </Btn>
         </div>
+        <div className="flex flex-col gap-3">
+          <span className="font-display text-xl uppercase text-white">Sito</span>
+          <SitoTab backup={false} />
+        </div>
         {archived.length > 0 && <ArchivioTabStandalone go={go} takenSlugs={takenSlugs} />}
         {newOpen && (
           <NewTournamentModal
